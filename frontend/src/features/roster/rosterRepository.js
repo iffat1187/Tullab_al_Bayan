@@ -26,7 +26,7 @@ function mapStudent(row, linkedUserByStudent) {
   }
 }
 
-export async function readRoster({ isActive } = {}) {
+export async function listRoster({ isActive } = {}) {
   requireClient()
   let query = supabase
     .from('students')
@@ -42,6 +42,11 @@ export async function readRoster({ isActive } = {}) {
   if (rolesError) throw rolesError
   const linked = new Map((roles ?? []).map(row => [row.student_id, row.user_id]))
   return (data ?? []).map(row => mapStudent(row, linked))
+}
+
+// Transitional synchronous stub consumed by unmigrated StaffDashboard until Iffat migrates it.
+export function readRoster() {
+  throw new Error('readRoster() is deprecated; migrate callers to async listRoster() or batchRepository.listActiveRosterForRole().')
 }
 
 function validateStudent(input) {

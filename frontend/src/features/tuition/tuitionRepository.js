@@ -67,13 +67,16 @@ export async function saveTuition(record, changes) {
 }
 
 export function parseFee(value) {
-  if (value === '') return { value: null }
-  if (!/^\d+(\.\d{1,2})?$/.test(value) || Number(value) > 99999999.99) return { error: 'Enter a valid BDT amount with up to two decimal places.' }
-  return { value: Number(value) }
+  const trimmed = String(value ?? '').trim()
+  if (trimmed === '') return { value: null }
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed) || Number(trimmed) > 99999999.99) return { error: 'Enter a valid BDT amount with up to two decimal places.' }
+  return { value: Number(trimmed) }
 }
 
 // Transitional exports consumed by Iffat's unmigrated StaffDashboard.
-export const readTuition = listMonthlyTuition
+export function readTuition() {
+  throw new Error('readTuition() is deprecated; migrate callers to async listMonthlyTuition().')
+}
 export function tuitionFor(records, month, studentUuid) {
   return Array.isArray(records)
     ? records.find(record => record.month === month && record.studentUuid === studentUuid)

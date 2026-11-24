@@ -1,6 +1,7 @@
 # Al Bayan Student Management System (Ṭullāb al-Bayān) — Final Database Design & Implementation Guide
 
 - **Status:** **FINAL LOCKED PRODUCTION DESIGN** (22 November 2026 — Zero Open Issues)
+- **Next Implementation Handoff:** See [docs/IFFAT_IMPLEMENTATION_HANDOFF.md](./IFFAT_IMPLEMENTATION_HANDOFF.md) for current implementation status, verified database/security architecture, Iffat's remaining tasks (`StaffDashboard`, `AcademicCalendar`, `CurriculumAnalysis`, `AdminExport`), the approved **Option 2 Teacher Listing & 1-Click Approval** architecture, and required test scenarios.
 - **Target Scale:** ~200 students, 1 institute (`Asia/Dhaka` timezone, `BDT` currency)
 - **Stack:** React + Tailwind CSS (Vercel) · Supabase PostgreSQL + Supabase Auth · Supabase CLI Forward Migrations
 

@@ -33,6 +33,52 @@ export type Database = {
                   Relationships: [
 
                   ]
+                },"attendance_marks": {
+                  Row: {
+                    "marked_at": string,"marked_by": string | null,"session_id": string,"status": string,"student_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "marked_at"?: string,"marked_by"?: string | null,"session_id": string,"status": string,"student_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "marked_at"?: string,"marked_by"?: string | null,"session_id"?: string,"status"?: string,"student_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "attendance_marks_session_id_fkey"
+      columns: ["session_id"]
+isOneToOne: false
+      referencedRelation: "attendance_sessions"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "attendance_marks_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "students"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"attendance_sessions": {
+                  Row: {
+                    "batch_id": number,"class_date": string,"class_type": string,"created_at": string,"created_by": string | null,"id": string,"session_no": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "batch_id": number,"class_date"?: string,"class_type": string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"session_no": number
+                  }
+                  Update: {
+                    "batch_id"?: number,"class_date"?: string,"class_type"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"session_no"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "attendance_sessions_batch_id_fkey"
+      columns: ["batch_id"]
+isOneToOne: false
+      referencedRelation: "batches"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"batches": {
                   Row: {
                     "class_time": string | null,"created_at": string,"day_of_week": number,"display_order": number,"id": number,"name": string,"updated_at": string,"venue": string | null
@@ -64,6 +110,32 @@ export type Database = {
       columns: ["batch_id"]
 isOneToOne: false
       referencedRelation: "batches"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"monthly_tuition": {
+                  Row: {
+                    "amount_due": number | null,"base_fee": number | null,"batch_id": number,"billing_month": string,"created_at": string,"display_status": string | null,"id": string,"notes": string | null,"paid_at": string | null,"payment_status": string,"scholarship_percent": number,"student_id": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount_due"?: never,"base_fee"?: number | null,"batch_id": number,"billing_month": string,"created_at"?: string,"display_status"?: never,"id"?: string,"notes"?: string | null,"paid_at"?: string | null,"payment_status"?: string,"scholarship_percent"?: number,"student_id": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "amount_due"?: never,"base_fee"?: number | null,"batch_id"?: number,"billing_month"?: string,"created_at"?: string,"display_status"?: never,"id"?: string,"notes"?: string | null,"paid_at"?: string | null,"payment_status"?: string,"scholarship_percent"?: number,"student_id"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "monthly_tuition_batch_id_fkey"
+      columns: ["batch_id"]
+isOneToOne: false
+      referencedRelation: "batches"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "monthly_tuition_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "students"
       referencedColumns: ["id"]
     }
                   ]
@@ -135,19 +207,47 @@ isOneToOne: true
                 }
           }
           Functions: {
-            "current_student_id":
+            "create_attendance_session":
+{ Args: { "p_batch_id": number,"p_class_date": string,"p_class_type": string }; Returns: {
+              "batch_id": number,
+"class_date": string,
+"class_type": string,
+"created_at": string,
+"created_by": string | null,
+"id": string,
+"session_no": number
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "attendance_sessions"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"current_student_id":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "current_user_role":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"delete_empty_attendance_session":
+{ Args: { "p_session_id": string }; Returns: undefined
+                           },
+"generate_monthly_tuition":
+{ Args: { "p_batch_id"?: number,"p_billing_month": string }; Returns: number
                            },
 "get_teacher_roster":
 { Args: Record<PropertyKey, never>; Returns: {
               "batch_id": number,"full_name": string,"id": string,"student_code": string
             }[]
                            },
+"import_students_csv":
+{ Args: { "p_rows": Json }; Returns: Json
+                           },
 "is_active_student":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"is_student_eligible_for_session":
+{ Args: { "p_session_id": string,"p_student_id": string }; Returns: boolean
                            },
 "link_student_account":
 { Args: { "p_student_id": string,"p_user_id": string }; Returns: undefined

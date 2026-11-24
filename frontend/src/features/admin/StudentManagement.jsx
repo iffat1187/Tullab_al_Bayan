@@ -7,8 +7,8 @@ import {
   importCsvRows,
   linkStudentAccount,
   listPendingAuthUsers,
+  listRoster,
   reactivateStudent,
-  readRoster,
   saveStudent,
   unlinkStudentAccount,
 } from '../roster/rosterRepository.js'
@@ -113,8 +113,10 @@ function CsvImportDialog({ onClose, onImported }) {
   useEffect(() => { dialog.current.showModal() }, [])
 
   async function chooseFile(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
     setResult(null); setError('')
-    try { setRows(parseCsv(await event.target.files[0].text())) } catch (caught) { setRows([]); setError(caught.message) }
+    try { setRows(parseCsv(await file.text())) } catch (caught) { setRows([]); setError(caught.message) }
   }
   async function submit() {
     setBusy(true); setError('')
@@ -174,7 +176,7 @@ export default function StudentManagement() {
   async function load() {
     setData(current => ({ ...current, loading: true, error: '' }))
     try {
-      const [students, batches, pendingUsers] = await Promise.all([readRoster(), listBatches(), listPendingAuthUsers()])
+      const [students, batches, pendingUsers] = await Promise.all([listRoster(), listBatches(), listPendingAuthUsers()])
       setData({ students, batches, pendingUsers, loading: false, error: '' })
     } catch { setData(current => ({ ...current, loading: false, error: 'Student records could not be loaded. Retry to continue.' })) }
   }

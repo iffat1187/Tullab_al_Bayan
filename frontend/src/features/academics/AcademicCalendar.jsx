@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { formatDate } from '../../demo.js'
 import { AdminBatchPage } from '../admin/AdminBatchPage.jsx'
-import { batches, readRoster } from '../roster/rosterRepository.js'
+import { batches } from '../roster/rosterRepository.js'
 import './batchCalendar.css'
 import { classDate } from './academicRepository.js'
 import { monthDays, nextClassDate, scheduledClasses, shiftMonth } from './studentSchedule.js'
@@ -82,12 +82,18 @@ function BatchCalendar({ batch }) {
 }
 
 function StudentCalendar({ account }) {
-  let batch
-  try {
-    batch = readRoster().find(student => student.historyId === account.historyId)?.batch
-  } catch {
-    return <><h1>Academic Calendar</h1><p role="alert" className="page-description">Your batch could not be loaded. Refresh to try again.</p></>
+  if (account.isActive === false) {
+    return (
+      <>
+        <h1>Academic Calendar</h1>
+        <p className="mt-5 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          Your enrollment is inactive. Active weekly class schedules are unavailable for former students.
+        </p>
+      </>
+    )
   }
+
+  const batch = account.batch
   return (
     <>
       <h1>Academic Calendar</h1>

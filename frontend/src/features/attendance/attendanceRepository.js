@@ -74,5 +74,7 @@ export async function listStudentAttendance(studentUuid) {
   return { history, summary: summarize(history) }
 }
 
-// Transitional name consumed by Iffat's unmigrated StaffDashboard.
-export const readSessions = listSessions
+// Transitional synchronous stub consumed by unmigrated StaffDashboard until Iffat migrates it.
+export function readSessions() {
+  throw new Error('readSessions() is deprecated; migrate callers to async listSessions().')
+}
