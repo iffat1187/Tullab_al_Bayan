@@ -1,6 +1,9 @@
 import { supabase } from '../auth/supabaseAuth.js'
+import { createLogger, logged } from '../../lib/logger.js'
 
-export async function listBatches() {
+const log = createLogger('batches')
+
+export const listBatches = logged(log, 'Load batches', async function listBatches() {
   if (!supabase) throw new Error('Supabase client is not configured.')
 
   const { data, error } = await supabase
@@ -17,9 +20,9 @@ export async function listBatches() {
     classTime: row.class_time ?? null,
     venue: row.venue ?? null,
   }))
-}
+}, { result: rows => ({ count: rows.length }) })
 
-export async function listActiveRosterForRole(role, knownBatches) {
+export const listActiveRosterForRole = logged(log, 'Load active roster', async function listActiveRosterForRole(role, knownBatches) {
   if (!supabase) throw new Error('Supabase client is not configured.')
 
   if (role === 'admin') {
@@ -60,4 +63,4 @@ export async function listActiveRosterForRole(role, knownBatches) {
   }
 
   throw new Error('Only administrators and teachers can access the batch roster.')
-}
+}, { context: role => ({ role }), result: rows => ({ count: rows.length }) })

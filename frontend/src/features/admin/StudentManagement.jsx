@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link2, Pencil, Plus, RotateCcw, Upload, UserMinus, X } from 'lucide-react'
 import { BackToBatches, BatchGrid } from './BatchGrid.jsx'
 import { listBatches } from './batchRepository.js'
+import { createLogger } from '../../lib/logger.js'
 import {
   deactivateStudent,
   importCsvRows,
@@ -12,6 +13,8 @@ import {
   saveStudent,
   unlinkStudentAccount,
 } from '../roster/rosterRepository.js'
+
+const log = createLogger('roster')
 
 const fieldClass = 'w-full rounded-lg border border-field-border bg-field px-3 py-2'
 
@@ -118,7 +121,7 @@ function CsvImportDialog({ onClose, onImported }) {
     const file = event.target.files?.[0]
     if (!file) return
     setResult(null); setError('')
-    try { setRows(parseCsv(await file.text())) } catch (caught) { setRows([]); setError(caught.message) }
+    try { setRows(parseCsv(await file.text())) } catch (caught) { log.warn('Student CSV file could not be parsed', { fileName: file.name, sizeBytes: file.size, reason: caught.message }); setRows([]); setError(caught.message) }
   }
   async function submit() {
     setBusy(true); setError('')

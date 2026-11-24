@@ -1,4 +1,7 @@
 import { supabase } from '../auth/supabaseAuth.js'
+import { createLogger, logged } from '../../lib/logger.js'
+
+const log = createLogger('tuition')
 
 export const scholarships = [0, 50, 100]
 export const paymentStatuses = ['Paid', 'Unpaid']
@@ -30,7 +33,7 @@ function mapRecord(row) {
   }
 }
 
-export async function listMonthlyTuition({ billingMonth, batchId } = {}) {
+export const listMonthlyTuition = logged(log, 'Load monthly tuition', async function listMonthlyTuition({ billingMonth, batchId } = {}) {
   requireClient()
   let query = supabase.from('monthly_tuition').select('*').order('billing_month', { ascending: false })
   if (billingMonth) query = query.eq('billing_month', billingMonth.length === 7 ? `${billingMonth}-01` : billingMonth)
@@ -38,25 +41,25 @@ export async function listMonthlyTuition({ billingMonth, batchId } = {}) {
   const { data, error } = await query
   if (error) throw error
   return (data ?? []).map(mapRecord)
-}
+}, { context: ({ billingMonth, batchId } = {}) => ({ billingMonth, batchId }), result: rows => ({ count: rows.length }) })
 
-export async function listStudentTuition(studentUuid) {
+export const listStudentTuition = logged(log, 'Load student tuition', async function listStudentTuition(studentUuid) {
   requireClient()
   if (!studentUuid) return []
   const { data, error } = await supabase.from('monthly_tuition').select('*').eq('student_id', studentUuid).order('billing_month', { ascending: false })
   if (error) throw error
   return (data ?? []).map(mapRecord)
-}
+}, { context: studentUuid => ({ studentId: studentUuid }), result: rows => ({ count: rows.length }) })
 
-export async function generateMonthlyTuition(billingMonth, batchId = null) {
+export const generateMonthlyTuition = logged(log, 'Generate monthly tuition', async function generateMonthlyTuition(billingMonth, batchId = null) {
   requireClient()
   const month = billingMonth.length === 7 ? `${billingMonth}-01` : billingMonth
   const { data, error } = await supabase.rpc('generate_monthly_tuition', { p_billing_month: month, p_batch_id: batchId })
   if (error) throw error
   return data
-}
+}, { context: (billingMonth, batchId = null) => ({ billingMonth, batchId }), result: created => ({ created }), successLevel: 'info', success: 'Monthly tuition generated' })
 
-export async function saveTuition(record, changes) {
+export const saveTuition = logged(log, 'Save tuition record', async function saveTuition(record, changes) {
   requireClient()
   const patch = {}
   if (Object.hasOwn(changes, 'baseFee')) patch.base_fee = changes.baseFee
@@ -66,7 +69,7 @@ export async function saveTuition(record, changes) {
   const { data, error } = await supabase.from('monthly_tuition').update(patch).eq('id', record.id).select('*').single()
   if (error) throw error
   return mapRecord(data)
-}
+}, { context: (record, changes) => ({ recordId: record.id, studentId: record.studentUuid, month: record.month, fields: Object.keys(changes) }), result: saved => ({ status: saved.status }), successLevel: 'info', success: 'Tuition record saved' })
 
 export function parseFee(value) {
   const trimmed = String(value ?? '').trim()
