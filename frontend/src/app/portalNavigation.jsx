@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import {
-  BookOpenCheck, CalendarDays, CalendarRange, CreditCard, FileText, GraduationCap,
+  BookOpenCheck, CalendarDays, CalendarRange, CreditCard, FileText,
   LayoutDashboard, ListChecks, Receipt, Tags, Users, Wifi,
 } from 'lucide-react'
 import StaffDashboard from '../features/dashboard/StaffDashboard.jsx'
@@ -11,45 +11,42 @@ import StudentTuition from '../features/tuition/StudentTuition.jsx'
 import AcademicCalendar from '../features/academics/AcademicCalendar.jsx'
 import CurriculumDetails from '../features/academics/CurriculumDetails.jsx'
 import CurriculumAnalysis from '../features/academics/CurriculumAnalysis.jsx'
-import { Grades, WifiInstructions } from '../features/academics/AcademicPages.jsx'
+import { WifiInstructions } from '../features/academics/AcademicPages.jsx'
 import { HomeworkManagement, StudentHomework } from '../features/homework/HomeworkPages.jsx'
+import { EmptyState, PageHeader } from '../components/ui.jsx'
 import { StudentAttendance, StudentOverview } from './StudentPages.jsx'
 
 export const roleLabels = { admin: 'Admin', teacher: 'Teacher', student: 'Student' }
 
-function EmptyPage({ message }) {
-  return <p className="mt-5 max-w-2xl rounded-2xl border border-surface-border bg-surface p-5 text-slate-600">{message}</p>
-}
-
-const academics = { title: 'Academics', pages: [
-  { path: 'grades', hiddenFromSidebar: true, title: 'Grades', icon: GraduationCap, page: <Grades /> },
-  { path: 'curriculum-details', title: 'Curriculum Details', icon: FileText, page: <CurriculumDetails /> },
-  { path: 'curriculum-analysis', title: 'Curriculum Analysis', icon: ListChecks, page: <CurriculumAnalysis /> },
-  { path: 'academic-calendar', title: 'Academic Calendar', icon: CalendarRange, page: <AcademicCalendar /> },
+const academics = { title: 'Course', pages: [
+  { path: 'academic-calendar', title: 'Class calendar', icon: CalendarRange, page: <AcademicCalendar /> },
+  { path: 'curriculum-details', title: 'Course books', icon: FileText, page: <CurriculumDetails /> },
+  { path: 'curriculum-analysis', title: 'Skills we teach', icon: ListChecks, page: <CurriculumAnalysis /> },
 ] }
 
 const institute = { title: 'Institute', pages: [
-  { path: 'bayan-wifi', title: 'Bayan Wi-Fi', icon: Wifi, page: <WifiInstructions /> },
+  { path: 'bayan-wifi', title: 'Wi-Fi', icon: Wifi, page: <WifiInstructions /> },
 ] }
 
-const studentAccounts = { title: 'Accounts', pages: [
-  { path: 'student-ledger', title: 'Student Ledger', icon: Receipt, page: <StudentTuition title="Student Ledger" /> },
-  { path: 'online-payment', title: 'Online Payment', icon: CreditCard, empty: 'Online payment is currently unavailable.' },
-  { path: 'tuition-fee-waiver', hiddenFromSidebar: true, title: 'Tuition Fee Waiver', icon: Tags, page: <StudentTuition title="Tuition Fee Waiver" waiverOnly /> },
+// Older links stay reachable, but duplicate or unavailable pages are kept out of the sidebar.
+const studentAccounts = { title: 'Fees', pages: [
+  { path: 'student-ledger', hiddenFromSidebar: true, title: 'Tuition history', icon: Receipt, page: <StudentTuition title="Tuition history" /> },
+  { path: 'online-payment', hiddenFromSidebar: true, title: 'Online payment', icon: CreditCard, empty: 'Online payment is not available yet. Pay at the institute office.' },
+  { path: 'tuition-fee-waiver', hiddenFromSidebar: true, title: 'Scholarship', icon: Tags, page: <StudentTuition title="Scholarship" waiverOnly /> },
 ] }
 
-const adminAccounts = { title: 'Accounts', pages: [
-  { path: 'student-ledgers', title: 'Student Ledgers', icon: Receipt, page: <AdminTuition title="Student Ledgers" mode="ledger" /> },
-  { path: 'payment-records', title: 'Payment Records', icon: CreditCard, page: <AdminTuition title="Payment Records" mode="payment" /> },
-  { path: 'scholarship-management', title: 'Scholarship Management', icon: Tags, page: <AdminTuition title="Scholarship Management" mode="scholarship" /> },
+const adminAccounts = { title: 'Fees', pages: [
+  { path: 'tuition', title: 'Monthly tuition', icon: CreditCard, page: <AdminTuition /> },
+  { path: 'payment-records', title: 'Payments', icon: Receipt, page: <AdminTuition title="Payments" mode="payment" /> },
+  { path: 'scholarship-management', title: 'Scholarships', icon: Tags, page: <AdminTuition title="Scholarships" mode="scholarship" /> },
+  { path: 'student-ledgers', title: 'Student ledgers', icon: FileText, page: <AdminTuition title="Student ledgers" mode="ledger" /> },
 ] }
 
 export function navigationFor(role) {
   const main = [
     { path: '', title: 'Dashboard', icon: LayoutDashboard, page: role === 'student' ? <StudentOverview /> : <StaffDashboard /> },
-    { path: 'attendance', title: 'Attendance', icon: CalendarDays, page: role === 'student' ? <StudentAttendance /> :
-      <StaffAttendance workspaceLabel={role === 'teacher' ? 'Teacher workspace' : 'Admin dashboard'} /> },
-    { path: 'homework', title: role === 'student' ? 'Homework' : 'Homework Management', icon: BookOpenCheck,
+    { path: 'attendance', title: 'Attendance', icon: CalendarDays, page: role === 'student' ? <StudentAttendance /> : <StaffAttendance /> },
+    { path: 'homework', title: 'Homework', icon: BookOpenCheck,
       page: role === 'student' ? <StudentHomework /> : <HomeworkManagement role={role} /> },
   ]
 
@@ -57,15 +54,13 @@ export function navigationFor(role) {
     main.push({ path: 'tuition', title: 'Tuition', icon: CreditCard, page: <StudentTuition title="Tuition" /> })
   }
   if (role === 'admin') {
-    main.push(
-      { path: 'students', title: 'Student Management', icon: Users, page: <StudentManagement /> },
-      { path: 'tuition', title: 'Tuition Management', icon: CreditCard, page: <AdminTuition /> },
-    )
+    main.push({ path: 'students', title: 'Students', icon: Users, page: <StudentManagement /> })
   }
 
-  const groups = [{ title: 'Main', pages: main }, academics]
-  if (role === 'student') groups.push(studentAccounts)
+  const groups = [{ title: 'Classroom', pages: main }]
   if (role === 'admin') groups.push(adminAccounts)
+  groups.push(academics)
+  if (role === 'student') groups.push(studentAccounts)
   return [...groups, institute]
 }
 
@@ -76,5 +71,5 @@ export function WorkspacePage({ section }) {
     return () => { document.title = previousTitle }
   }, [section.title])
 
-  return section.page ?? <><h1>{section.title}</h1><EmptyPage message={section.empty} /></>
+  return section.page ?? <><PageHeader title={section.title} /><div className="panel"><EmptyState>{section.empty}</EmptyState></div></>
 }

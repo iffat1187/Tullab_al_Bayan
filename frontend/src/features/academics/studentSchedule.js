@@ -1,7 +1,4 @@
-import { batches } from '../roster/rosterRepository.js'
-
-// Add institute-provided { time, venue } details here, keyed by batch name.
-const classDetails = {}
+// Batches come from public.batches: { name, dayOfWeek (0 = Sunday), classTime, venue }.
 
 const toDate = value => new Date(value + 'T00:00:00Z')
 const toIso = date => date.toISOString().slice(0, 10)
@@ -22,21 +19,23 @@ export function monthDays(month) {
   return days
 }
 
-function batchWeekday(batch) {
-  const index = batches.indexOf(batch)
-  return index < 0 ? -1 : (index + 6) % 7
+function formatClassTime(value) {
+  if (!value) return null
+  const [hours, minutes] = value.split(':').map(Number)
+  const date = new Date(Date.UTC(1970, 0, 1, hours, minutes))
+  return new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' }).format(date)
 }
 
 export function scheduledClasses(batch, month) {
-  const weekday = batchWeekday(batch)
-  return monthDays(month).filter(day => day.weekday === weekday)
-    .map(day => ({ ...day, ...classDetails[batch] }))
+  if (!batch || !Number.isInteger(batch.dayOfWeek)) return []
+  const details = { time: formatClassTime(batch.classTime), venue: batch.venue ?? null }
+  return monthDays(month).filter(day => day.weekday === batch.dayOfWeek)
+    .map(day => ({ ...day, ...details }))
 }
 
 export function nextClassDate(batch, today) {
-  const weekday = batchWeekday(batch)
-  if (weekday < 0) return null
+  if (!batch || !Number.isInteger(batch.dayOfWeek)) return null
   const date = toDate(today)
-  date.setUTCDate(date.getUTCDate() + (weekday - date.getUTCDay() + 7) % 7)
+  date.setUTCDate(date.getUTCDate() + (batch.dayOfWeek - date.getUTCDay() + 7) % 7)
   return toIso(date)
 }

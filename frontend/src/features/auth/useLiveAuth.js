@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createLogger, describeError } from '../../lib/logger.js'
 import { loadProfile, signOutUser, supabase } from './supabaseAuth.js'
+
+const log = createLogger('auth')
 
 const OAUTH_ERROR_PARAMS = ['error', 'error_description', 'error_code']
 
@@ -93,11 +96,14 @@ export function useLiveAuth() {
     supabase.auth.getSession().then(
       ({ data, error }) => {
         if (!active) return
+        if (error) log.error('Could not restore the saved session; continuing as signed out', error)
+        else log.debug(data?.session ? 'Restored existing session' : 'No existing session found', { userId: data?.session?.user?.id })
         applySession(error ? null : (data?.session ?? null), 'GET_SESSION')
         setSessionChecked(true)
       },
-      () => {
+      error => {
         if (!active) return
+        log.error('Session lookup threw unexpectedly; continuing as signed out', error)
         applySession(null, 'GET_SESSION_ERROR')
         setSessionChecked(true)
       },
@@ -105,6 +111,11 @@ export function useLiveAuth() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, next) => {
       if (!active) return
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        log.info(`Auth state changed: ${event}`, { userId: next?.user?.id })
+      } else {
+        log.debug(`Auth state changed: ${event}`, { userId: next?.user?.id })
+      }
       applySession(next ?? null, event)
     })
 
@@ -116,6 +127,10 @@ export function useLiveAuth() {
 
   useEffect(() => {
     if (!sessionChecked) return
+    if (hasOAuthUrlError()) {
+      const params = new URLSearchParams(window.location.search + '&' + (window.location.hash || '').replace(/^#/, ''))
+      log.warn('Google sign-in returned an error', { error: params.get('error'), code: params.get('error_code'), description: params.get('error_description') })
+    }
     clearOAuthCallbackParams()
   }, [sessionChecked])
 
@@ -134,7 +149,8 @@ export function useLiveAuth() {
           setResult({ userId, attempt, profile, error: null })
         }
       },
-      () => {
+      error => {
+        log.warn('Institute access check failed; showing the retry screen', { userId, attempt, error: describeError(error) })
         if (active && requestId === requestIdRef.current) {
           setResult({
             userId,
@@ -153,6 +169,7 @@ export function useLiveAuth() {
   }, [userId, attempt])
 
   const retry = useCallback(() => {
+    log.info('Retrying institute access check')
     setAttempt(value => value + 1)
   }, [])
 

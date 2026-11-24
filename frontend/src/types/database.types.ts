@@ -181,31 +181,7 @@ isOneToOne: true
                   ]
                 }
           }
-          Views: {
-            "bayan_staff_access": {
-                  Row: {
-                    "role": string,"user_id": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                           "role"?: string | null,"user_id"?: string | null
-                         }
-                        Update: {
-                           "role"?: string | null,"user_id"?: string | null
-                         }
-                        Relationships: [
-
-                  ]
-                },"bayan_student_profiles": {
-                  Row: {
-                    "batch": string,"full_name": string,"student_id": string,"user_id": string | null
-                  }
-                  ComputedFields: never
-                  Relationships: [
-
-                  ]
-                }
-          }
+          Views: {}
           Functions: {
             "create_attendance_session":
 { Args: { "p_batch_id": number,"p_class_date": string,"p_class_type": string }; Returns: {

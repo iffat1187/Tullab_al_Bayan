@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { formatDate } from '../../demo.js'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { AdminBatchPage } from '../admin/AdminBatchPage.jsx'
-import { batches } from '../roster/rosterRepository.js'
+import { LoadingState, Notice, PageHeader } from '../../components/ui.jsx'
+import { listBatches } from '../admin/batchRepository.js'
 import './batchCalendar.css'
 import { classDate } from './academicRepository.js'
 import { monthDays, nextClassDate, scheduledClasses, shiftMonth } from './studentSchedule.js'
@@ -12,12 +13,11 @@ const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'nume
 const fullDate = new Intl.DateTimeFormat('en-GB', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
 })
-const controlClass = 'rounded-lg border border-field-border bg-field px-3 py-2 text-sm font-semibold text-blue-900 hover:bg-sky-100'
 
 function ClassDetails({ assignment }) {
   return (
     <>
-      <span className="block font-semibold text-blue-950">In-person class</span>
+      <span className="block font-medium">Class</span>
       {assignment.time && <span className="block">{assignment.time}</span>}
       {assignment.venue && <span className="block">{assignment.venue}</span>}
     </>
@@ -39,42 +39,41 @@ function BatchCalendar({ batch }) {
 
   return (
     <>
-      <div className="mt-5 rounded-xl border border-surface-border bg-surface p-4">
-        <p className="mt-1">Next class <time className="font-semibold" dateTime={next}>{fullDate.format(new Date(next + 'T00:00:00Z'))}</time></p>
-        <p className="mt-1 text-sm text-slate-600">Scheduled classes · Asia/Dhaka</p>
-      </div>
-      <section className="mt-5" aria-labelledby="calendar-month">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="calendar-month" aria-live="polite" className="text-xl font-bold">{label}</h2>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={controlClass} onClick={() => setMonth(value => shiftMonth(value, -1))}>Previous month</button>
-            <button type="button" className={controlClass} onClick={() => setMonth(currentMonth)}>Today</button>
-            <button type="button" className={controlClass} onClick={() => setMonth(value => shiftMonth(value, 1))}>Next month</button>
+      {next && (
+        <Notice tone="info" className="mb-4">
+          Next class: <time className="font-medium" dateTime={next}>{fullDate.format(new Date(next + 'T00:00:00Z'))}</time>
+        </Notice>
+      )}
+      <section className="panel" aria-labelledby="calendar-month">
+        <div className="panel-head">
+          <h2 id="calendar-month" aria-live="polite">{label}</h2>
+          <div className="flex gap-1">
+            <button type="button" className="btn btn-secondary btn-sm" aria-label="Previous month" onClick={() => setMonth(value => shiftMonth(value, -1))}><ChevronLeft size={17} /></button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setMonth(currentMonth)} disabled={month === currentMonth}>This month</button>
+            <button type="button" className="btn btn-secondary btn-sm" aria-label="Next month" onClick={() => setMonth(value => shiftMonth(value, 1))}><ChevronRight size={17} /></button>
           </div>
         </div>
-        <div className="mt-3 hidden overflow-hidden rounded-xl border border-surface-border bg-surface lg:block">
-          <table className="table-fixed" aria-label={label + ' schedule'}>
-            <thead><tr>{weekdays.map(day => <th scope="col" key={day} className="p-2">{day}</th>)}</tr></thead>
+        <div className="hidden lg:block">
+          <table className="calendar-grid" aria-label={label + ' schedule'}>
+            <thead><tr>{weekdays.map(day => <th scope="col" key={day}>{day}</th>)}</tr></thead>
             <tbody>{weeks.map((week, index) => (
               <tr key={index}>{week.map((day, column) => {
                 const assignment = day && byDate.get(day.date)
-                return <td key={column} className="h-20 border-r border-surface-border p-2 last:border-r-0" data-class-day={Boolean(assignment)} data-today={day?.date === today}>
-                  {day && <time dateTime={day.date} aria-current={day.date === today ? 'date' : undefined}
-                    className={day.date === today ? 'font-bold' : undefined}>{day.day}</time>}
-                  {assignment && <div className="mt-1 break-words text-xs"><ClassDetails assignment={assignment} /></div>}
+                return <td key={column} data-class-day={Boolean(assignment)} data-today={day?.date === today} data-past={Boolean(day && day.date < today)}>
+                  {day && <time dateTime={day.date} aria-current={day.date === today ? 'date' : undefined}>{day.day}</time>}
+                  {assignment && <div className="calendar-class"><ClassDetails assignment={assignment} /></div>}
                 </td>
               })}</tr>
             ))}</tbody>
           </table>
         </div>
-        <ol aria-label={label + ' class dates'} className="mt-3 divide-y divide-surface-border rounded-xl border border-surface-border bg-surface lg:hidden">
-          {classes.map(assignment => (
-            <li key={assignment.date} className="px-4 py-3" data-class-day="true" data-today={assignment.date === today}>
-              <time dateTime={assignment.date} className="block text-sm text-slate-700"
-                aria-current={assignment.date === today ? 'date' : undefined}>{formatDate(assignment.date)}</time>
-              <ClassDetails assignment={assignment} />
+        <ol aria-label={label + ' class dates'} className="calendar-list lg:hidden">
+          {classes.length ? classes.map(assignment => (
+            <li key={assignment.date} data-today={assignment.date === today} data-past={assignment.date < today}>
+              <time dateTime={assignment.date} aria-current={assignment.date === today ? 'date' : undefined}>{fullDate.format(new Date(assignment.date + 'T00:00:00Z'))}</time>
+              <span className="text-sm text-muted">{[assignment.time, assignment.venue].filter(Boolean).join(', ') || 'In person'}</span>
             </li>
-          ))}
+          )) : <li className="text-muted">No classes this month.</li>}
         </ol>
       </section>
     </>
@@ -82,23 +81,35 @@ function BatchCalendar({ batch }) {
 }
 
 function StudentCalendar({ account }) {
+  const [state, setState] = useState({ batch: null, loading: true, error: '' })
+  useEffect(() => {
+    if (account.isActive === false || !account.batchId) return undefined
+    let active = true
+    listBatches().then(
+      batches => { if (active) setState({ batch: batches.find(item => item.id === account.batchId) ?? null, loading: false, error: '' }) },
+      () => { if (active) setState({ batch: null, loading: false, error: 'The class schedule could not be loaded. Refresh to try again.' }) },
+    )
+    return () => { active = false }
+  }, [account.isActive, account.batchId])
+
   if (account.isActive === false) {
     return (
       <>
-        <h1>Academic Calendar</h1>
-        <p className="mt-5 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
-          Your enrollment is inactive. Active weekly class schedules are unavailable for former students.
-        </p>
+        <PageHeader title="Class calendar" />
+        <Notice tone="warn">You're no longer enrolled, so there's no class schedule to show.</Notice>
       </>
     )
   }
 
-  const batch = account.batch
+  const { batch } = state
   return (
     <>
-      <h1>Academic Calendar</h1>
-      {batches.includes(batch) ? <><p className="page-description font-semibold">{batch} Batch</p><BatchCalendar key={batch} batch={batch} /></> :
-        <p className="page-description">Your batch has not been assigned yet.</p>}
+      <PageHeader title="Class calendar" description={batch ? `${batch.name} batch. Times are Dhaka time.` : undefined} />
+      {!account.batchId ? <Notice tone="info">You haven't been placed in a batch yet.</Notice>
+        : state.loading ? <LoadingState>Loading your schedule…</LoadingState>
+          : state.error ? <Notice tone="error">{state.error}</Notice>
+            : batch ? <BatchCalendar key={batch.id} batch={batch} />
+              : <Notice tone="info">You haven't been placed in a batch yet.</Notice>}
     </>
   )
 }
@@ -108,8 +119,8 @@ export default function AcademicCalendar() {
   if (role === 'student') return <StudentCalendar account={account} />
 
   return (
-    <AdminBatchPage title="Academic Calendar" workspaceLabel={role === 'teacher' ? 'Teacher workspace' : 'Admin dashboard'}>
-      {({ batch }) => <BatchCalendar key={batch} batch={batch} />}
+    <AdminBatchPage title="Class calendar" description="Each batch meets once a week. Times are Dhaka time.">
+      {({ batchInfo }) => <BatchCalendar key={batchInfo.id} batch={batchInfo} />}
     </AdminBatchPage>
   )
 }

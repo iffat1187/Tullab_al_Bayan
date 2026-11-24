@@ -1,8 +1,9 @@
 import { supabase } from '../auth/supabaseAuth.js'
+import { createLogger, logged } from '../../lib/logger.js'
+
+const log = createLogger('roster')
 
 const scholarships = [0, 50, 100]
-// Transitional export for the untouched attendance module; removed in Mostofa Phase 3.
-export const batches = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase client is not configured.')
@@ -26,7 +27,7 @@ function mapStudent(row, linkedUserByStudent) {
   }
 }
 
-export async function listRoster({ isActive } = {}) {
+export const listRoster = logged(log, 'Load student roster', async function listRoster({ isActive } = {}) {
   requireClient()
   let query = supabase
     .from('students')
@@ -42,12 +43,7 @@ export async function listRoster({ isActive } = {}) {
   if (rolesError) throw rolesError
   const linked = new Map((roles ?? []).map(row => [row.student_id, row.user_id]))
   return (data ?? []).map(row => mapStudent(row, linked))
-}
-
-// Transitional synchronous stub consumed by unmigrated StaffDashboard until Iffat migrates it.
-export function readRoster() {
-  throw new Error('readRoster() is deprecated; migrate callers to async listRoster() or batchRepository.listActiveRosterForRole().')
-}
+}, { context: ({ isActive } = {}) => ({ isActive }), result: rows => ({ count: rows.length }) })
 
 function validateStudent(input) {
   const student = {
@@ -70,10 +66,13 @@ function validateStudent(input) {
   return { student, errors }
 }
 
-export async function saveStudent(input, studentUuid = null) {
+export const saveStudent = logged(log, 'Save student', async function saveStudent(input, studentUuid = null) {
   requireClient()
   const { student, errors } = validateStudent(input)
-  if (Object.keys(errors).length) return { errors }
+  if (Object.keys(errors).length) {
+    log.warn('Student form rejected by validation', { studentId: studentUuid ?? 'new', fields: Object.keys(errors) })
+    return { errors }
+  }
   const query = studentUuid
     ? supabase.from('students').update(student).eq('id', studentUuid)
     : supabase.from('students').insert(student)
@@ -81,11 +80,14 @@ export async function saveStudent(input, studentUuid = null) {
     .select('id, student_code, full_name, email, batch_id, default_monthly_fee, default_scholarship_percent, is_active, enrolled_at, batch_assigned_at, deactivated_at, batches(name)')
     .single()
   if (error) {
-    if (error.code === '23505') return { errors: { form: 'Student ID or email is already in use.' } }
+    if (error.code === '23505') {
+      log.warn('Student save rejected: student ID or email is already in use', { studentId: studentUuid ?? 'new', studentCode: student.student_code, constraint: error.details })
+      return { errors: { form: 'Student ID or email is already in use.' } }
+    }
     throw error
   }
   return { student: mapStudent(data) }
-}
+}, { context: (input, studentUuid = null) => ({ studentId: studentUuid ?? 'new', studentCode: input.id }), result: outcome => (outcome.errors ? { rejected: Object.keys(outcome.errors) } : { studentId: outcome.student.id }), successLevel: 'info', success: 'Student save finished' })
 
 async function setActive(studentUuid, isActive) {
   requireClient()
@@ -93,31 +95,35 @@ async function setActive(studentUuid, isActive) {
   if (error) throw error
 }
 
-export const deactivateStudent = studentUuid => setActive(studentUuid, false)
-export const reactivateStudent = studentUuid => setActive(studentUuid, true)
+export const deactivateStudent = logged(log, 'Deactivate student', studentUuid => setActive(studentUuid, false), {
+  context: studentUuid => ({ studentId: studentUuid }), successLevel: 'info', success: 'Student deactivated',
+})
+export const reactivateStudent = logged(log, 'Reactivate student', studentUuid => setActive(studentUuid, true), {
+  context: studentUuid => ({ studentId: studentUuid }), successLevel: 'info', success: 'Student reactivated',
+})
 
-export async function importCsvRows(rows) {
+export const importCsvRows = logged(log, 'Import students from CSV', async function importCsvRows(rows) {
   requireClient()
   const { data, error } = await supabase.rpc('import_students_csv', { p_rows: rows })
   if (error) throw error
   return data
-}
+}, { context: rows => ({ rows: rows.length }), result: summary => ({ summary }), successLevel: 'info', success: 'Student CSV import finished' })
 
-export async function listPendingAuthUsers() {
+export const listPendingAuthUsers = logged(log, 'Load pending sign-ins', async function listPendingAuthUsers() {
   requireClient()
   const { data, error } = await supabase.rpc('list_pending_auth_users')
   if (error) throw error
   return (data ?? []).map(row => ({ userId: row.user_id, email: row.email ?? '', fullName: row.full_name ?? '', createdAt: row.created_at }))
-}
+}, { result: rows => ({ count: rows.length }) })
 
-export async function linkStudentAccount(studentUuid, userId) {
+export const linkStudentAccount = logged(log, 'Link student account', async function linkStudentAccount(studentUuid, userId) {
   requireClient()
   const { error } = await supabase.rpc('link_student_account', { p_student_id: studentUuid, p_user_id: userId })
   if (error) throw error
-}
+}, { context: (studentUuid, userId) => ({ studentId: studentUuid, userId }), successLevel: 'info', success: 'Google account linked to student' })
 
-export async function unlinkStudentAccount(studentUuid) {
+export const unlinkStudentAccount = logged(log, 'Unlink student account', async function unlinkStudentAccount(studentUuid) {
   requireClient()
   const { error } = await supabase.rpc('unlink_student_account', { p_student_id: studentUuid })
   if (error) throw error
-}
+}, { context: studentUuid => ({ studentId: studentUuid }), successLevel: 'info', success: 'Google account unlinked from student' })

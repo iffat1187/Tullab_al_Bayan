@@ -11,7 +11,7 @@ export default function AccountAvatar({ account, className = '' }) {
     <img src={account.photo} alt="" referrerPolicy="no-referrer" onError={() => setFailedPhoto(account.photo)}
       className={className + ' shrink-0 rounded-full object-cover'} />
   ) : (
-    <span aria-hidden="true" className={className + ' grid shrink-0 place-items-center rounded-full bg-blue-100 font-bold text-blue-950'}>
+    <span aria-hidden="true" className={className + ' grid shrink-0 place-items-center rounded-full bg-brand-wash font-semibold text-brand'}>
       {initials}
     </span>
   )

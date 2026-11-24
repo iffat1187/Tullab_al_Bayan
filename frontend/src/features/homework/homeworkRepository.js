@@ -1,4 +1,7 @@
 import { supabase } from '../auth/supabaseAuth.js'
+import { createLogger, logged, ValidationError } from '../../lib/logger.js'
+
+const log = createLogger('homework')
 
 const SELECT_COLUMNS = 'id, batch_id, title, instructions, deadline, published_at, updated_at, batches(name)'
 
@@ -15,7 +18,7 @@ function mapHomeworkRow(row) {
   }
 }
 
-export async function listHomework(batchId) {
+export const listHomework = logged(log, 'Load homework', async function listHomework(batchId) {
   if (!supabase) throw new Error('Supabase client is not configured.')
 
   let query = supabase
@@ -31,9 +34,9 @@ export async function listHomework(batchId) {
   const { data, error } = await query
   if (error) throw error
   return (data ?? []).map(mapHomeworkRow)
-}
+}, { context: batchId => ({ batchId }), result: rows => ({ count: rows.length }) })
 
-export async function saveHomework({ id, batchId, title, instructions, deadline }) {
+export const saveHomework = logged(log, 'Save homework', async function saveHomework({ id, batchId, title, instructions, deadline }) {
   if (!supabase) throw new Error('Supabase client is not configured.')
 
   const numericBatchId = Number(batchId)
@@ -42,16 +45,16 @@ export async function saveHomework({ id, batchId, title, instructions, deadline 
   const cleanDeadline = typeof deadline === 'string' && deadline.trim() ? deadline.trim() : null
 
   if (!Number.isInteger(numericBatchId) || numericBatchId < 1 || numericBatchId > 7) {
-    throw new Error('Select a valid batch before saving homework.')
+    throw new ValidationError('Select a valid batch before saving homework.')
   }
   if (!cleanTitle) {
-    throw new Error('Enter a homework title.')
+    throw new ValidationError('Enter a homework title.')
   }
   if (!rawInstructions.trim()) {
-    throw new Error('Enter homework instructions.')
+    throw new ValidationError('Enter homework instructions.')
   }
   if (cleanDeadline !== null && !/^\d{4}-\d{2}-\d{2}$/.test(cleanDeadline)) {
-    throw new Error('Enter a valid deadline date (YYYY-MM-DD).')
+    throw new ValidationError('Enter a valid deadline date (YYYY-MM-DD).')
   }
 
   if (id) {
@@ -82,28 +85,17 @@ export async function saveHomework({ id, batchId, title, instructions, deadline 
     .single()
   if (error) throw error
   return mapHomeworkRow(data)
-}
+}, { context: ({ id, batchId }) => ({ homeworkId: id ?? 'new', batchId }), result: saved => ({ homeworkId: saved.id }), successLevel: 'info', success: 'Homework saved' })
 
-export async function deleteHomework(id) {
+export const deleteHomework = logged(log, 'Delete homework', async function deleteHomework(id) {
   if (!supabase) throw new Error('Supabase client is not configured.')
-  if (!id) throw new Error('Homework assignment ID is required.')
+  if (!id) throw new ValidationError('Homework assignment ID is required.')
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('homework_assignments')
     .delete()
     .eq('id', id)
+    .select('id')
   if (error) throw error
-}
-
-// TODO(mostofa, iffat): Replace remaining synchronous readHomework() calls in
-// src/app/StudentPages.jsx and src/features/dashboard/StaffDashboard.jsx with
-// async listHomework(batchId?) before removing these transitional exports.
-export function readHomework() {
-  throw new Error('readHomework() is deprecated; migrate callers to async listHomework(batchId?).')
-}
-
-export function homeworkTitle(value) {
-  if (value && typeof value === 'object') return value.title ?? ''
-  if (typeof value === 'string') return value.trim().split(/\r?\n/, 1)[0]
-  return ''
-}
+  if (!data?.length) throw new Error('Homework was not deleted. It may already have been removed, or you lack permission.')
+}, { context: id => ({ homeworkId: id }), successLevel: 'info', success: 'Homework deleted' })
