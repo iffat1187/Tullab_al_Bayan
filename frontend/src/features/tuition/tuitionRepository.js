@@ -5,6 +5,8 @@ export const paymentStatuses = ['Paid', 'Unpaid']
 export const coveredStatus = 'Covered by scholarship'
 export const feeNotSetStatus = 'Fee not set'
 export const noAmountDueStatus = 'No amount due'
+// Client-only status for roster students with no monthly_tuition row for the selected month.
+export const notGeneratedStatus = 'Not generated'
 export const tuitionStatuses = [...paymentStatuses, coveredStatus, feeNotSetStatus, noAmountDueStatus]
 
 function requireClient() {
@@ -71,14 +73,4 @@ export function parseFee(value) {
   if (trimmed === '') return { value: null }
   if (!/^\d+(\.\d{1,2})?$/.test(trimmed) || Number(trimmed) > 99999999.99) return { error: 'Enter a valid BDT amount with up to two decimal places.' }
   return { value: Number(trimmed) }
-}
-
-// Transitional exports consumed by Iffat's unmigrated StaffDashboard.
-export function readTuition() {
-  throw new Error('readTuition() is deprecated; migrate callers to async listMonthlyTuition().')
-}
-export function tuitionFor(records, month, studentUuid) {
-  return Array.isArray(records)
-    ? records.find(record => record.month === month && record.studentUuid === studentUuid)
-    : undefined
 }

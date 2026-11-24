@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { formatDate } from '../../demo.js'
+import { formatDate } from '../../lib/formatDate.js'
 import { AdminBatchPage } from '../admin/AdminBatchPage.jsx'
-import { batches } from '../roster/rosterRepository.js'
+import { listBatches } from '../admin/batchRepository.js'
 import './batchCalendar.css'
 import { classDate } from './academicRepository.js'
 import { monthDays, nextClassDate, scheduledClasses, shiftMonth } from './studentSchedule.js'
@@ -40,7 +40,7 @@ function BatchCalendar({ batch }) {
   return (
     <>
       <div className="mt-5 rounded-xl border border-surface-border bg-surface p-4">
-        <p className="mt-1">Next class <time className="font-semibold" dateTime={next}>{fullDate.format(new Date(next + 'T00:00:00Z'))}</time></p>
+        {next && <p className="mt-1">Next class <time className="font-semibold" dateTime={next}>{fullDate.format(new Date(next + 'T00:00:00Z'))}</time></p>}
         <p className="mt-1 text-sm text-slate-600">Scheduled classes · Asia/Dhaka</p>
       </div>
       <section className="mt-5" aria-labelledby="calendar-month">
@@ -82,6 +82,17 @@ function BatchCalendar({ batch }) {
 }
 
 function StudentCalendar({ account }) {
+  const [state, setState] = useState({ batch: null, loading: true, error: '' })
+  useEffect(() => {
+    if (account.isActive === false || !account.batchId) return undefined
+    let active = true
+    listBatches().then(
+      batches => { if (active) setState({ batch: batches.find(item => item.id === account.batchId) ?? null, loading: false, error: '' }) },
+      () => { if (active) setState({ batch: null, loading: false, error: 'The class schedule could not be loaded. Refresh to try again.' }) },
+    )
+    return () => { active = false }
+  }, [account.isActive, account.batchId])
+
   if (account.isActive === false) {
     return (
       <>
@@ -93,12 +104,15 @@ function StudentCalendar({ account }) {
     )
   }
 
-  const batch = account.batch
+  const { batch } = state
   return (
     <>
       <h1>Academic Calendar</h1>
-      {batches.includes(batch) ? <><p className="page-description font-semibold">{batch} Batch</p><BatchCalendar key={batch} batch={batch} /></> :
-        <p className="page-description">Your batch has not been assigned yet.</p>}
+      {!account.batchId ? <p className="page-description">Your batch has not been assigned yet.</p>
+        : state.loading ? <p className="page-description">Loading schedule…</p>
+          : state.error ? <p role="alert" className="mt-4 text-red-800">{state.error}</p>
+            : batch ? <><p className="page-description font-semibold">{batch.name} Batch</p><BatchCalendar key={batch.id} batch={batch} /></>
+              : <p className="page-description">Your batch has not been assigned yet.</p>}
     </>
   )
 }
@@ -109,7 +123,7 @@ export default function AcademicCalendar() {
 
   return (
     <AdminBatchPage title="Academic Calendar" workspaceLabel={role === 'teacher' ? 'Teacher workspace' : 'Admin dashboard'}>
-      {({ batch }) => <BatchCalendar key={batch} batch={batch} />}
+      {({ batchInfo }) => <BatchCalendar key={batchInfo.id} batch={batchInfo} />}
     </AdminBatchPage>
   )
 }

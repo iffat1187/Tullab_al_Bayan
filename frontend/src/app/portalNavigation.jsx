@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import {
-  BookOpenCheck, CalendarDays, CalendarRange, CreditCard, FileText, GraduationCap,
+  BookOpenCheck, CalendarDays, CalendarRange, CreditCard, FileText,
   LayoutDashboard, ListChecks, Receipt, Tags, Users, Wifi,
 } from 'lucide-react'
 import StaffDashboard from '../features/dashboard/StaffDashboard.jsx'
@@ -11,7 +11,7 @@ import StudentTuition from '../features/tuition/StudentTuition.jsx'
 import AcademicCalendar from '../features/academics/AcademicCalendar.jsx'
 import CurriculumDetails from '../features/academics/CurriculumDetails.jsx'
 import CurriculumAnalysis from '../features/academics/CurriculumAnalysis.jsx'
-import { Grades, WifiInstructions } from '../features/academics/AcademicPages.jsx'
+import { WifiInstructions } from '../features/academics/AcademicPages.jsx'
 import { HomeworkManagement, StudentHomework } from '../features/homework/HomeworkPages.jsx'
 import { StudentAttendance, StudentOverview } from './StudentPages.jsx'
 
@@ -22,7 +22,6 @@ function EmptyPage({ message }) {
 }
 
 const academics = { title: 'Academics', pages: [
-  { path: 'grades', hiddenFromSidebar: true, title: 'Grades', icon: GraduationCap, page: <Grades /> },
   { path: 'curriculum-details', title: 'Curriculum Details', icon: FileText, page: <CurriculumDetails /> },
   { path: 'curriculum-analysis', title: 'Curriculum Analysis', icon: ListChecks, page: <CurriculumAnalysis /> },
   { path: 'academic-calendar', title: 'Academic Calendar', icon: CalendarRange, page: <AcademicCalendar /> },

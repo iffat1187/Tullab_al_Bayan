@@ -1,14 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AdminBatchPage, buttonClass, fieldClass } from '../admin/AdminBatchPage.jsx'
 import { formatTuitionAmount } from './tuitionFormat.js'
 import { TuitionHistory } from './StudentTuition.jsx'
+import { listRoster } from '../roster/rosterRepository.js'
 import {
   coveredStatus,
   feeNotSetStatus,
   generateMonthlyTuition,
   listMonthlyTuition,
   noAmountDueStatus,
+  notGeneratedStatus,
   parseFee,
   paymentStatuses,
   saveTuition,
@@ -24,10 +26,13 @@ const emptyByStatus = {
   [coveredStatus]: 'No students covered by scholarship for this batch and month.',
   [feeNotSetStatus]: 'No students with unset fees for this batch and month.',
   [noAmountDueStatus]: 'No students with zero fees due for this batch and month.',
+  [notGeneratedStatus]: 'Every student in this batch has a record for this month.',
 }
 
+const filterStatuses = [...tuitionStatuses, notGeneratedStatus]
+
 function effectiveStatus(record, scholarship, due) {
-  if (!record) return feeNotSetStatus
+  if (!record) return notGeneratedStatus
   if (scholarship === 100) return coveredStatus
   if (due === null) return feeNotSetStatus
   if (due <= 0) return noAmountDueStatus
@@ -68,7 +73,8 @@ function TuitionRow({ student, record, mode, onSaved }) {
     setSaving(true)
     setError('')
     try {
-      await saveTuition(record, { baseFee: parsed.value, scholarship, payment: paymentDisabled ? record.payment : payment })
+      // Nothing is payable when the fee is unset or fully waived, so the record cannot stay Paid.
+      await saveTuition(record, { baseFee: parsed.value, scholarship, payment: paymentDisabled ? 'Unpaid' : payment })
       onSaved(student.name)
     } catch (caught) {
       setError(caught.message || 'The tuition record could not be saved.')
@@ -81,7 +87,7 @@ function TuitionRow({ student, record, mode, onSaved }) {
     <tr>
       <th scope="row" className="bg-transparent">
         <strong className="block">{student.name}</strong>
-        <span className="text-xs font-normal text-slate-600">{student.id}</span>
+        <span className="text-xs font-normal text-slate-600">{student.id}{student.note ? ' · ' + student.note : ''}</span>
       </th>
       <td>
         {mode === 'payment' ? (
@@ -150,30 +156,54 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
   const [filter, setFilter] = useState('All statuses')
   const [search, setSearch] = useState('')
   const [selectedStudentUuid, setSelectedStudentUuid] = useState('')
+  // Every student (active and inactive), so records of students who were deactivated or moved
+  // batch after billing still appear, and admins can open former students' ledgers.
+  const [allStudents, setAllStudents] = useState([])
+  const requestId = useRef(0)
+
+  useEffect(() => {
+    let active = true
+    listRoster().then(list => { if (active) setAllStudents(list) }, () => {})
+    return () => { active = false }
+  }, [])
 
   async function load(nextNotice) {
+    const id = ++requestId.current
     setState(current => ({ ...current, loading: true, error: '' }))
     if (nextNotice !== undefined) setNotice(nextNotice)
     try {
-      setState({ records: await listMonthlyTuition({ billingMonth: month, batchId }), loading: false, error: '' })
+      const records = await listMonthlyTuition({ billingMonth: month, batchId })
+      if (id === requestId.current) setState({ records, loading: false, error: '' })
     } catch {
-      setState({ records: [], loading: false, error: 'Tuition records could not be loaded.' })
+      if (id === requestId.current) setState({ records: [], loading: false, error: 'Tuition records could not be loaded.' })
     }
   }
 
   useEffect(() => {
     if (mode !== 'ledger') load()
+    return () => { requestId.current += 1 }
   }, [batchId, month, mode])
 
   const byStudent = useMemo(() => new Map(state.records.map(record => [record.studentUuid, record])), [state.records])
 
-  const roster = useMemo(() => students.map(student => {
-    const record = byStudent.get(student.uuid)
-    return { student, record, status: record?.status ?? feeNotSetStatus }
-  }), [students, byStudent])
+  const roster = useMemo(() => {
+    const activeIds = new Set(students.map(student => student.uuid))
+    const everyone = new Map(allStudents.map(student => [student.uuid, student]))
+    const extras = state.records
+      .filter(record => !activeIds.has(record.studentUuid))
+      .map(record => {
+        const known = everyone.get(record.studentUuid)
+        const note = !known ? '' : !known.isActive ? 'Inactive' : known.batchId !== batchId ? 'Moved to ' + (known.batch ?? 'another batch') : ''
+        return { ...(known ?? { uuid: record.studentUuid, id: '—', name: 'Unknown student' }), note }
+      })
+    return [...students, ...extras].map(student => {
+      const record = byStudent.get(student.uuid)
+      return { student, record, status: record?.status ?? notGeneratedStatus }
+    })
+  }, [students, allStudents, state.records, byStudent, batchId])
 
   const counts = useMemo(() => {
-    const map = Object.fromEntries(tuitionStatuses.map(status => [status, 0]))
+    const map = Object.fromEntries(filterStatuses.map(status => [status, 0]))
     for (const item of roster) {
       if (Object.hasOwn(map, item.status)) map[item.status] += 1
     }
@@ -207,7 +237,8 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
     }
   }
 
-  const historyStudent = students.find(student => student.uuid === selectedStudentUuid)
+  const formerStudents = allStudents.filter(student => !student.isActive && student.batchId === batchId)
+  const historyStudent = [...students, ...formerStudents].find(student => student.uuid === selectedStudentUuid)
 
   if (mode === 'ledger') {
     return (
@@ -217,6 +248,11 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
           <select className={fieldClass + ' mt-1'} value={selectedStudentUuid} onChange={event => setSelectedStudentUuid(event.target.value)}>
             <option value="">Select a student</option>
             {students.map(student => <option key={student.uuid} value={student.uuid}>{student.name} · {student.id}</option>)}
+            {formerStudents.length > 0 && (
+              <optgroup label="Former students">
+                {formerStudents.map(student => <option key={student.uuid} value={student.uuid}>{student.name} · {student.id}</option>)}
+              </optgroup>
+            )}
           </select>
         </label>
         {historyStudent && <TuitionHistory studentUuid={historyStudent.uuid} />}
@@ -245,7 +281,7 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
         <label className="block text-sm font-semibold">
           Filter by payment status
           <select className={fieldClass + ' mt-1'} value={filter} onChange={event => selectFilter(event.target.value)}>
-            {['All statuses', ...tuitionStatuses].map(status => <option key={status}>{status}</option>)}
+            {['All statuses', ...filterStatuses].map(status => <option key={status}>{status}</option>)}
           </select>
         </label>
         <label className="block min-w-0 text-sm font-semibold">
@@ -290,9 +326,9 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
             </button>
           ))}
         </div>
-        {counts[noAmountDueStatus] > 0 && (
-          <p className="mt-2 text-sm text-slate-600">{noAmountDueStatus} · {counts[noAmountDueStatus]}</p>
-        )}
+        {[noAmountDueStatus, notGeneratedStatus].filter(status => counts[status] > 0).map(status => (
+          <p key={status} className="mt-2 text-sm text-slate-600">{status} · {counts[status]}</p>
+        ))}
         {filter !== 'All statuses' && (
           <button
             type="button"
@@ -313,7 +349,7 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
 
       {state.loading ? (
         <p className="mt-4">Loading tuition…</p>
-      ) : !students.length ? (
+      ) : !roster.length ? (
         <p className="mt-5 text-slate-600">No students in this batch yet.</p>
       ) : !rows.length ? (
         <p className="mt-5 text-slate-600" role="status">

@@ -92,6 +92,7 @@ export function AdminBatchPage({ title, children, workspaceLabel = 'Admin dashbo
             {children({
               batchId: selectedBatch.id,
               batch: selectedBatch.name,
+              batchInfo: selectedBatch,
               students: members,
               reload,
             })}

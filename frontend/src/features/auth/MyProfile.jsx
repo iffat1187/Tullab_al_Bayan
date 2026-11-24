@@ -1,5 +1,5 @@
 import React from 'react'
-import { formatDate } from '../../demo.js'
+import { formatDate } from '../../lib/formatDate.js'
 import AccountAvatar from './AccountAvatar.jsx'
 
 const roleNames = {

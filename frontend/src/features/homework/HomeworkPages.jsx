@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { formatDate } from '../../demo.js'
+import { formatDate } from '../../lib/formatDate.js'
 import { AdminBatchPage, buttonClass, fieldClass } from '../admin/AdminBatchPage.jsx'
 import { deleteHomework, listHomework, saveHomework } from './homeworkRepository.js'
 

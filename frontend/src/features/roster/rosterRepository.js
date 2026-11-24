@@ -1,8 +1,6 @@
 import { supabase } from '../auth/supabaseAuth.js'
 
 const scholarships = [0, 50, 100]
-// Transitional export for the untouched attendance module; removed in Mostofa Phase 3.
-export const batches = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase client is not configured.')
@@ -42,11 +40,6 @@ export async function listRoster({ isActive } = {}) {
   if (rolesError) throw rolesError
   const linked = new Map((roles ?? []).map(row => [row.student_id, row.user_id]))
   return (data ?? []).map(row => mapStudent(row, linked))
-}
-
-// Transitional synchronous stub consumed by unmigrated StaffDashboard until Iffat migrates it.
-export function readRoster() {
-  throw new Error('readRoster() is deprecated; migrate callers to async listRoster() or batchRepository.listActiveRosterForRole().')
 }
 
 function validateStudent(input) {

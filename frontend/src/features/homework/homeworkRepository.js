@@ -88,22 +88,11 @@ export async function deleteHomework(id) {
   if (!supabase) throw new Error('Supabase client is not configured.')
   if (!id) throw new Error('Homework assignment ID is required.')
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('homework_assignments')
     .delete()
     .eq('id', id)
+    .select('id')
   if (error) throw error
-}
-
-// TODO(mostofa, iffat): Replace remaining synchronous readHomework() calls in
-// src/app/StudentPages.jsx and src/features/dashboard/StaffDashboard.jsx with
-// async listHomework(batchId?) before removing these transitional exports.
-export function readHomework() {
-  throw new Error('readHomework() is deprecated; migrate callers to async listHomework(batchId?).')
-}
-
-export function homeworkTitle(value) {
-  if (value && typeof value === 'object') return value.title ?? ''
-  if (typeof value === 'string') return value.trim().split(/\r?\n/, 1)[0]
-  return ''
+  if (!data?.length) throw new Error('Homework was not deleted. It may already have been removed, or you lack permission.')
 }

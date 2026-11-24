@@ -35,12 +35,24 @@ export async function loadProfile(user) {
     photo: metadata.avatar_url || metadata.picture || null,
   }
 
-  const { data: roleRow, error: roleError } = await supabase
+  const readRole = () => supabase
     .from('user_roles')
     .select('role, student_id, staff_code, full_name')
     .eq('user_id', user.id)
     .maybeSingle()
+
+  let { data: roleRow, error: roleError } = await readRole()
   if (roleError) throw roleError
+
+  if (!roleRow) {
+    // A student whose Google email is on their student record links automatically.
+    // If the call fails or finds no match, the user simply stays pending.
+    const { data: claimedStudent, error: claimError } = await supabase.rpc('claim_student_access')
+    if (!claimError && claimedStudent) {
+      ;({ data: roleRow, error: roleError } = await readRole())
+      if (roleError) throw roleError
+    }
+  }
 
   if (!roleRow) {
     return {

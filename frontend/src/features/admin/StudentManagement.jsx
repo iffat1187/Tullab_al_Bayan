@@ -15,7 +15,9 @@ import {
 
 const fieldClass = 'w-full rounded-lg border border-field-border bg-field px-3 py-2'
 
-function parseCsv(text) {
+function parseCsv(source) {
+  // Excel saves UTF-8 CSV with a byte-order mark that would otherwise corrupt the first header.
+  const text = source.replace(/^\uFEFF/, '')
   const rows = []
   let row = []
   let value = ''
@@ -147,6 +149,10 @@ function AccountLinkPanel({ students, pendingUsers, onChanged }) {
   const [error, setError] = useState('')
   async function link(student) {
     if (!selected[student.uuid]) return
+    const account = pendingUsers.find(user => user.userId === selected[student.uuid])
+    const accountEmail = account?.email?.toLowerCase() ?? ''
+    if (accountEmail !== (student.email ?? '').toLowerCase()
+      && !window.confirm(`The Google account (${accountEmail || 'no email'}) does not match ${student.name}'s recorded email (${student.email || 'none'}). Link anyway?`)) return
     setBusy(student.uuid); setError('')
     try { await linkStudentAccount(student.uuid, selected[student.uuid]); await onChanged() } catch { setError('The account could not be linked. Verify that it is still pending.') } finally { setBusy('') }
   }
@@ -184,6 +190,7 @@ export default function StudentManagement() {
 
   const visible = useMemo(() => data.students.filter(student => student.isActive === activeTab && (!batch || student.batch === batch) && (!search.trim() || `${student.name} ${student.id}`.toLowerCase().includes(search.trim().toLowerCase()))), [data.students, activeTab, batch, search])
   async function toggleActive(student) {
+    if (student.isActive && !window.confirm(`Deactivate ${student.name}? They will lose access to homework and be removed from attendance and new tuition.`)) return
     try { if (student.isActive) await deactivateStudent(student.uuid); else await reactivateStudent(student.uuid); setNotice(`${student.name} was ${student.isActive ? 'deactivated' : 'reactivated'}.`); await load() } catch { setNotice('The student status could not be changed.') }
   }
   function newStudent() { setEditor({ uuid: null, id: '', name: '', email: '', batchId: data.batches.find(item => item.name === batch)?.id ?? data.batches[0]?.id ?? 1, defaultMonthlyFee: '', defaultScholarshipPercent: 0 }) }

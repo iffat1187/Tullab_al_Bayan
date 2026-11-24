@@ -1,13 +1,13 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ArrowUpRight, BookOpenCheck, CalendarDays, ClipboardCheck, CreditCard, Users } from 'lucide-react'
 import './staffDashboard.css'
 import { Link, useOutletContext } from 'react-router-dom'
-import { formatDate } from '../../demo.js'
+import { formatDate } from '../../lib/formatDate.js'
 import { academicCalendar, classDate } from '../academics/academicRepository.js'
-import { homeworkTitle, readHomework } from '../homework/homeworkRepository.js'
-import { markOptions, readSessions } from '../attendance/attendanceRepository.js'
-import { batches, readRoster } from '../roster/rosterRepository.js'
-import { coveredStatus, readTuition, tuitionFor } from '../tuition/tuitionRepository.js'
+import { listHomework } from '../homework/homeworkRepository.js'
+import { listSessions, markOptions } from '../attendance/attendanceRepository.js'
+import { listActiveRosterForRole, listBatches } from '../admin/batchRepository.js'
+import { coveredStatus, listMonthlyTuition } from '../tuition/tuitionRepository.js'
 import { formatBillingMonth, formatTuitionAmount } from '../tuition/tuitionFormat.js'
 
 const shortcutGroups = {
@@ -31,16 +31,17 @@ function Summary({ title, period, to, icon: Icon, children }) {
     </Link>
   )
 }
-function AttendanceCompletion({ sessions, students }) {
+
+function AttendanceCompletion({ sessions, students, batchNames }) {
   if (!sessions.length) return <p>No attendance sessions have been opened today.</p>
   return (
     <ul className="divide-y divide-blue-100">
       {sessions.map(session => {
-        const roster = students.filter(student => student.batch === session.batch)
-        const marked = roster.filter(student => markOptions.includes(session.marks[student.historyId])).length
+        const roster = students.filter(student => student.batchId === session.batchId)
+        const marked = roster.filter(student => markOptions.includes(session.marks[student.uuid])).length
         return (
           <li key={session.id} className="flex flex-wrap justify-between gap-2 py-2">
-            <span>{session.batch} Batch · {session.type}</span>
+            <span>{batchNames.get(session.batchId) ?? 'Unknown'} Batch · {session.type} · Session {session.sessionNo}</span>
             <span className="font-semibold">{marked} / {roster.length} marked</span>
           </li>
         )
@@ -49,13 +50,39 @@ function AttendanceCompletion({ sessions, students }) {
   )
 }
 
-function AdminSummary({ students, sessions, today, records }) {
-  const [month, setMonth] = useState(today.slice(0, 7))
+function TuitionSummary({ month }) {
+  const [state, setState] = useState({ records: [], loading: true, error: '' })
 
+  useEffect(() => {
+    if (!month) return undefined
+    let active = true
+    setState(current => ({ ...current, loading: true, error: '' }))
+    listMonthlyTuition({ billingMonth: month }).then(
+      records => { if (active) setState({ records, loading: false, error: '' }) },
+      () => { if (active) setState({ records: [], loading: false, error: 'Tuition could not be loaded.' }) },
+    )
+    return () => { active = false }
+  }, [month])
+
+  if (!month) return null
+  if (state.loading) return <p className="text-sm">Loading tuition…</p>
+  if (state.error) return <p className="text-sm text-red-800">{state.error}</p>
+  if (!state.records.length) return <p className="text-sm">Tuition has not been generated for this month.</p>
+
+  const unpaid = state.records.filter(record => record.status === 'Unpaid')
+  const outstanding = unpaid.reduce((total, record) => total + (record.due ?? 0), 0)
+  return (
+    <div className="text-sm">
+      <p className="font-bold">{formatTuitionAmount(outstanding)} outstanding</p>
+      <p>{state.records.filter(record => record.status === 'Paid').length} paid · {unpaid.length} unpaid</p>
+      <p>{state.records.filter(record => record.status === coveredStatus).length} covered by scholarship</p>
+    </div>
+  )
+}
+
+function AdminSummary({ students, batches, sessions, today }) {
+  const [month, setMonth] = useState(today.slice(0, 7))
   const marks = sessions.flatMap(session => Object.values(session.marks)).filter(mark => markOptions.includes(mark))
-  const fees = month ? students.map(student => tuitionFor(records, month, student.historyId)) : []
-  const unpaid = fees.filter(fee => fee.status === 'Unpaid')
-  const outstanding = unpaid.reduce((total, fee) => total + fee.due, 0)
 
   return (
     <div className="space-y-3">
@@ -64,7 +91,7 @@ function AdminSummary({ students, sessions, today, records }) {
         <input type="month" value={month} onChange={event => setMonth(event.target.value)} />
       </label>
       <div className="grid gap-4 lg:grid-cols-3">
-        <Summary title="Total students" period={'Across ' + batches.length + ' batches'} to="/admin/students" icon={Users}>
+        <Summary title="Active students" period={'Across ' + batches.length + ' batches'} to="/admin/students" icon={Users}>
           <p className="text-3xl font-bold">{students.length}</p>
         </Summary>
         <Summary title="Recorded attendance" period={formatDate(today)} to="/admin/attendance" icon={ClipboardCheck}>
@@ -75,60 +102,80 @@ function AdminSummary({ students, sessions, today, records }) {
         </Summary>
         <Summary title="Tuition summary" period={month ? formatBillingMonth(month) : 'Select a billing month'}
           to={month ? '/admin/tuition?month=' + encodeURIComponent(month) : '/admin/tuition'} icon={CreditCard}>
-          {month && <div className="text-sm">
-            <p className="font-bold">{formatTuitionAmount(outstanding)} outstanding</p>
-            <p>{fees.filter(fee => fee.status === 'Paid').length} paid · {unpaid.length} unpaid</p>
-            <p>{fees.filter(fee => fee.status === coveredStatus).length} covered by scholarship</p>
-          </div>}
+          <TuitionSummary month={month} />
         </Summary>
       </div>
     </div>
   )
 }
 
-function TeacherSummary({ students, sessions, today, homework }) {
-  const calendar = academicCalendar()
-  const classes = calendar.filter(item => item.batch && item.date === today)
-  const upcoming = calendar.filter(item => item.batch && item.date > today).slice(0, 3)
+function TeacherSummary({ students, batches, sessions, today, homework }) {
+  const batchNames = new Map(batches.map(batch => [batch.id, batch.name]))
+  const calendar = academicCalendar(batches)
+  const classes = calendar.filter(item => item.date === today)
+  const upcoming = calendar.filter(item => item.date > today).slice(0, 3)
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <Summary title="Today's classes" period={formatDate(today) + ' · Demo schedule'}
-        to="/teacher/academic-calendar" icon={CalendarDays}>
+      <Summary title="Today's classes" period={formatDate(today)} to="/teacher/academic-calendar" icon={CalendarDays}>
         {classes.length ? classes.map(item => (
           <p key={item.batch} className="mb-2 font-semibold">{item.batch} Batch · {item.type}</p>
         )) : <p>No classes scheduled today.</p>}
         {upcoming.length > 0 && <>
           <h3 className="mt-4 text-sm font-bold">Upcoming classes</h3>
           <ul className="mt-1 space-y-1 text-sm">
-            {upcoming.map(item => <li key={item.date}>{formatDate(item.date)} · {item.batch} Batch · {item.type}</li>)}
+            {upcoming.map(item => <li key={item.date + item.batch}>{formatDate(item.date)} · {item.batch} Batch · {item.type}</li>)}
           </ul>
         </>}
       </Summary>
       <Summary title="Attendance progress" period={formatDate(today)} to="/teacher/attendance" icon={ClipboardCheck}>
-        <AttendanceCompletion sessions={sessions} students={students} />
+        <AttendanceCompletion sessions={sessions} students={students} batchNames={batchNames} />
       </Summary>
       <Summary title="Homework" period="Recently published by batch" to="/teacher/homework" icon={BookOpenCheck}>
         {homework.length ? <ul className="space-y-2">
-          {homework.map(item => <li key={item.id}>{item.batch} Batch · {homeworkTitle(item.text)}</li>)}
+          {homework.map(item => <li key={item.id}>{item.batchName ?? batchNames.get(item.batchId)} Batch · {item.title}</li>)}
         </ul> : <p>No homework has been published yet.</p>}
       </Summary>
     </div>
   )
 }
+
 function DashboardData({ role }) {
-  let students, sessions, records, homework
-  const today = classDate()
-  try {
-    students = readRoster()
-    sessions = readSessions().filter(session => session.date === today)
-    // Check stored tuition before rendering the admin summary so errors stay local to this page.
-    if (role === 'admin') records = readTuition()
-    else homework = readHomework().slice(0, 3)
-  } catch {
-    return <p className="text-red-800" role="alert">Dashboard records could not be loaded. Refresh to try again.</p>
+  const [today] = useState(classDate)
+  const [state, setState] = useState({ loading: true, error: '', students: [], batches: [], sessions: [], homework: [] })
+  const [reloadToken, setReloadToken] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    setState(current => ({ ...current, loading: true, error: '' }))
+    async function load() {
+      const batches = await listBatches()
+      const [students, sessions, homework] = await Promise.all([
+        listActiveRosterForRole(role, batches),
+        listSessions({ classDate: today }),
+        role === 'teacher' ? listHomework() : Promise.resolve([]),
+      ])
+      const recentHomework = [...homework]
+        .sort((first, second) => String(second.publishedAt).localeCompare(String(first.publishedAt)))
+        .slice(0, 3)
+      return { students, batches, sessions, homework: recentHomework }
+    }
+    load().then(
+      data => { if (active) setState({ ...data, loading: false, error: '' }) },
+      () => { if (active) setState(current => ({ ...current, loading: false, error: 'Dashboard records could not be loaded.' })) },
+    )
+    return () => { active = false }
+  }, [role, today, reloadToken])
+
+  if (state.loading) return <p role="status">Loading dashboard…</p>
+  if (state.error) {
+    return (
+      <p className="text-red-800" role="alert">
+        {state.error} <button type="button" className="underline" onClick={() => setReloadToken(value => value + 1)}>Retry</button>
+      </p>
+    )
   }
   const SummaryPage = role === 'admin' ? AdminSummary : TeacherSummary
-  return <SummaryPage students={students} sessions={sessions} today={today} records={records} homework={homework} />
+  return <SummaryPage {...state} today={today} />
 }
 
 export default function StaffDashboard() {
@@ -136,7 +183,7 @@ export default function StaffDashboard() {
   return (
     <div className="space-y-5">
       <header className="surface-banner rounded-2xl p-5 sm:p-8">
-        <p className="text-sm font-semibold text-sky-900">Al Bayan Institute · Demo</p>
+        <p className="text-sm font-semibold text-sky-900">Al Bayan Institute</p>
         <h1>{role === 'admin' ? 'Admin Dashboard' : 'Teacher Dashboard'}</h1>
       </header>
       <nav aria-label="Dashboard shortcuts" className="flex flex-wrap gap-2">

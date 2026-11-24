@@ -73,8 +73,3 @@ export async function listStudentAttendance(studentUuid) {
   })
   return { history, summary: summarize(history) }
 }
-
-// Transitional synchronous stub consumed by unmigrated StaffDashboard until Iffat migrates it.
-export function readSessions() {
-  throw new Error('readSessions() is deprecated; migrate callers to async listSessions().')
-}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ArrowRight, BookOpen, CalendarDays, CreditCard } from 'lucide-react'
 import { Link, useOutletContext } from 'react-router-dom'
-import { formatDate } from '../demo.js'
+import { formatDate } from '../lib/formatDate.js'
 import { listHomework } from '../features/homework/homeworkRepository.js'
 import { listStudentAttendance, markOptions } from '../features/attendance/attendanceRepository.js'
 import { listStudentTuition } from '../features/tuition/tuitionRepository.js'
