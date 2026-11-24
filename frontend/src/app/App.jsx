@@ -5,7 +5,7 @@ import AccountAvatar from '../features/auth/AccountAvatar.jsx'
 import MyProfile from '../features/auth/MyProfile.jsx'
 import { startGoogleSignIn } from '../features/auth/supabaseAuth.js'
 import { useLiveAuth } from '../features/auth/useLiveAuth.js'
-import { KhatamPattern, Notice } from '../components/ui.jsx'
+import { KhatamPattern, Notice, ToastProvider } from '../components/ui.jsx'
 import { navigationFor, roleLabels, WorkspacePage } from './portalNavigation.jsx'
 import './portal.css'
 
@@ -13,7 +13,7 @@ function StarMark({ size = 28 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <polygon points="12.00,1.50 14.37,6.27 19.42,4.58 17.73,9.63 22.50,12.00 17.73,14.37 19.42,19.42 14.37,17.73 12.00,22.50 9.63,17.73 4.58,19.42 6.27,14.37 1.50,12.00 6.27,9.63 4.58,4.58 9.63,6.27" fill="currentColor" />
-      <circle cx="12" cy="12" r="3" fill="var(--teal-deep)" />
+      <circle cx="12" cy="12" r="3" fill="var(--brand-deep)" />
     </svg>
   )
 }
@@ -61,18 +61,20 @@ function SignIn({ configured, callbackError }) {
 
   return (
     <main className="sign-in">
-      <section className="sign-in-intro" aria-label="Al Bayan Institute">
-        <KhatamPattern opacity={0.35} />
+      <section className="sign-in-intro brand-surface" aria-label="Al Bayan Institute">
+        <KhatamPattern opacity={0.12} />
         <Brand />
         <div>
           <p className="sign-in-greeting" lang="ar" dir="rtl">السَّلَامُ عَلَيْكُمْ</p>
           <h1>Your Arabic classroom, in one place.</h1>
           <p>Homework, attendance and tuition for every class at Al Bayan Institute.</p>
         </div>
-        <p className="sign-in-intro-foot">Students, teachers and administrators use the same sign-in.</p>
+        <div className="sign-in-points" aria-label="What you can do here">
+          <span>Daily attendance</span><span>Batch homework</span><span>Monthly tuition</span><span>Class calendar</span>
+        </div>
       </section>
       <section className="sign-in-content" aria-labelledby="form-title">
-        <div className="sign-in-form">
+        <div className="sign-in-card">
           <h2 id="form-title">Sign in</h2>
           <p>Use the Google account you gave the institute office.</p>
 
@@ -108,7 +110,7 @@ function StatusScreen({ title, message, error, children }) {
   return (
     <main className="status-screen">
       <div className="status-card">
-        <div className="status-card-brand"><KhatamPattern opacity={0.3} /><Brand /></div>
+        <div className="status-card-brand brand-surface"><KhatamPattern opacity={0.12} /><Brand /></div>
         <section className="status-card-body">
           <h1>{title}</h1>
           <p role={error ? 'alert' : 'status'}>{message}</p>
@@ -154,7 +156,7 @@ function PendingAccessScreen({ account, onRetry, onSignOut, signOutError }) {
 
 function PortalLayout({ role, account, onSignOut, signOutError, groups }) {
   const label = roleLabels[role]
-  const { key: locationKey } = useLocation()
+  const { key: locationKey, pathname } = useLocation()
   const [openAt, setOpenAt] = useState(null)
   const menuOpen = openAt === locationKey
   const closeMenu = () => setOpenAt(null)
@@ -178,9 +180,10 @@ function PortalLayout({ role, account, onSignOut, signOutError, groups }) {
   }
 
   return (
+    <ToastProvider>
     <div className="portal">
       <a href="#portal-content" className="skip-link">Skip to content</a>
-      <header className="portal-topbar">
+      <header className="portal-topbar brand-surface">
         <Brand />
         <button type="button" className="portal-menu-toggle" aria-controls="portal-sidebar" aria-expanded={menuOpen}
           onClick={() => setOpenAt(menuOpen ? null : locationKey)}>
@@ -188,8 +191,9 @@ function PortalLayout({ role, account, onSignOut, signOutError, groups }) {
         </button>
       </header>
       <div className="sidebar-backdrop" data-open={menuOpen} onClick={closeMenu} aria-hidden="true" />
-      <aside id="portal-sidebar" className="sidebar" data-open={menuOpen}>
-        <div className="sidebar-brand"><KhatamPattern opacity={0.3} /><Brand /></div>
+      <aside id="portal-sidebar" className="sidebar brand-surface" data-open={menuOpen}>
+        <KhatamPattern opacity={0.1} />
+        <div className="sidebar-brand"><Brand /></div>
         <nav aria-label={label + ' navigation'}>
           {groups.filter(group => group.pages.some(page => !page.hiddenFromSidebar)).map(group => (
             <section key={group.title} aria-labelledby={'nav-' + group.title.toLowerCase()}>
@@ -214,9 +218,10 @@ function PortalLayout({ role, account, onSignOut, signOutError, groups }) {
       </aside>
       <main id="portal-content" tabIndex={-1} className="portal-content">
         {signOutError && <Notice tone="error" className="mb-4">{signOutError}</Notice>}
-        <Outlet context={{ role, account }} />
+        <div key={pathname} className="page-enter"><Outlet context={{ role, account }} /></div>
       </main>
     </div>
+    </ToastProvider>
   )
 }
 

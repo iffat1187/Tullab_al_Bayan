@@ -14,7 +14,7 @@ export default function CurriculumAnalysis() {
           const Icon = icons[skill.id] ?? BookOpenText
           return (
             <li key={skill.id} className="panel panel-body flex gap-4">
-              <span className="grid size-11 flex-none place-items-center rounded-lg bg-teal-wash text-teal"><Icon size={21} aria-hidden="true" /></span>
+              <span className="grid size-11 flex-none place-items-center rounded-lg bg-brand-wash text-brand"><Icon size={21} aria-hidden="true" /></span>
               <div className="min-w-0">
                 <h2 className="break-words">{skill.title}</h2>
                 <p className="mt-1 whitespace-pre-wrap break-words text-muted">{skill.description}</p>

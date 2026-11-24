@@ -3,33 +3,35 @@
 
 .session-tabs { display: flex; flex-wrap: wrap; gap: .4rem; }
 .session-tab {
-  min-height: 2.5rem; padding: .35rem .85rem; border: 1px solid var(--line-strong); border-radius: var(--radius);
-  background: var(--surface); font-size: .9rem; transition: border-color var(--ease), background-color var(--ease);
+  min-height: 2.5rem; padding: .35rem .95rem; border: 1px solid var(--line-strong); border-radius: 999px;
+  background: var(--surface); font-size: .875rem; font-weight: 600; color: var(--muted); box-shadow: var(--shadow-sm);
+  transition: border-color var(--ease), background-color var(--ease), color var(--ease);
 }
-.session-tab:hover { border-color: var(--teal); }
-.session-tab[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-wash); color: var(--teal); font-weight: 500; }
-.session-tab small { margin-left: .35rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.session-tab:hover { border-color: #b8c7e3; color: var(--ink); }
+.session-tab[aria-pressed="true"] { border-color: #b7caf5; background: var(--brand-wash); color: var(--brand); }
+.session-tab small { margin-left: .4rem; color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
 
 .new-session { display: flex; flex-wrap: wrap; gap: .5rem; }
 .new-session .field { width: auto; }
 
-.mark-group { display: inline-grid; grid-template-columns: repeat(4, minmax(4.25rem, 1fr)); border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.mark-group { display: inline-grid; grid-template-columns: repeat(4, minmax(5rem, 1fr)); gap: .25rem; padding: .25rem; border-radius: .9rem; background: var(--surface-sunk); box-shadow: inset 0 0 0 1px var(--line); }
 .mark-group button {
-  min-height: 2.4rem; padding: .3rem .5rem; border-left: 1px solid var(--line-strong);
-  font-size: .875rem; color: var(--ink); transition: background-color var(--ease), color var(--ease);
+  min-height: 2.5rem; padding: .35rem .7rem; border-radius: .65rem;
+  font-size: .9rem; font-weight: 600; color: var(--muted);
+  transition: background-color var(--ease), color var(--ease), box-shadow var(--ease);
 }
-.mark-group button:first-child { border-left: 0; }
-.mark-group button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--surface-sunk); }
+.mark-group button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
 .mark-group button:disabled { opacity: .45; }
-.mark-group button:focus-visible { outline-offset: -3px; }
-.mark-group button[aria-pressed="true"] { color: #fff; font-weight: 500; }
-.mark-group button[aria-pressed="true"][data-mark="Present"] { background: var(--ok); }
-.mark-group button[aria-pressed="true"][data-mark="Late"] { background: #9a6700; }
-.mark-group button[aria-pressed="true"][data-mark="Sick"] { background: var(--violet); }
-.mark-group button[aria-pressed="true"][data-mark="Absent"] { background: var(--danger); }
-.mark-group[aria-busy="true"] { opacity: .65; }
+.mark-group button:focus-visible { outline-offset: -2px; }
+.mark-group button[aria-pressed="true"] { color: #fff; box-shadow: 0 4px 10px -4px var(--mark-shadow, #0003); }
+.mark-group button[aria-pressed="true"][data-mark="Present"] { background: linear-gradient(180deg, #1f9460, var(--ok)); --mark-shadow: #157a4c99; }
+.mark-group button[aria-pressed="true"][data-mark="Late"] { background: linear-gradient(180deg, #e0a52a, #c38610); --mark-shadow: #c3861099; }
+.mark-group button[aria-pressed="true"][data-mark="Sick"] { background: linear-gradient(180deg, #7a55cc, var(--violet)); --mark-shadow: #6440b899; }
+.mark-group button[aria-pressed="true"][data-mark="Absent"] { background: linear-gradient(180deg, #d6493e, var(--danger)); --mark-shadow: #c0362c99; }
+.mark-group button[aria-pressed="true"] { animation: mark-pop var(--spring); }
+@keyframes mark-pop { 0% { scale: .9; } 100% { scale: 1; } }
 
-.roster-row-unmarked th::before { content: ''; display: inline-block; width: .45rem; height: .45rem; margin-right: .5rem; border-radius: 50%; background: var(--gilt); vertical-align: middle; }
+.roster-row-unmarked .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--gold); }
 
 @media (max-width: 720px) {
   .attendance-roster thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

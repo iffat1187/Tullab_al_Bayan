@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { formatDate } from '../lib/formatDate.js'
-import { EmptyState, KhatamPattern, LoadingState, Notice, PageHeader, StatusPill } from '../components/ui.jsx'
+import { EmptyState, KhatamPattern, Notice, PageHeader, SkeletonCards, SkeletonRows, StatusPill } from '../components/ui.jsx'
 import { listBatches } from '../features/admin/batchRepository.js'
 import { classDate } from '../features/academics/academicRepository.js'
 import { nextClassDate, scheduledClasses } from '../features/academics/studentSchedule.js'
@@ -40,8 +40,8 @@ function NextClass({ batch }) {
   if (!next) return null
   const details = scheduledClasses(batch, next.slice(0, 7)).find(item => item.date === next)
   return (
-    <section className="today-card" aria-label="Next class">
-      <KhatamPattern opacity={0.3} />
+    <section className="today-card brand-surface" aria-label="Next class">
+      <KhatamPattern opacity={0.1} />
       <div>
         <h2>{next === today ? 'Class today' : `Next class: ${longDate.format(new Date(next + 'T00:00:00Z'))}`}</h2>
         <p>{[details?.time, details?.venue].filter(Boolean).join(', ') || `${batch.name} batch, in person`}</p>
@@ -63,10 +63,10 @@ export function StudentOverview() {
       description={account.batch ? `${account.batch} batch, student ID ${account.id}` : `Student ID ${account.id}`} />
     {account.isActive === false && <Notice tone="warn" className="mb-4">You're no longer enrolled. You can still see your past attendance and tuition.</Notice>}
     {state.error && <Notice tone="error" className="mb-4">{state.error}</Notice>}
-    {state.loading ? <LoadingState>Loading your overview…</LoadingState> : <>
+    {state.loading ? <><div className="today-card skeleton-hero" aria-hidden="true" /><div className="mt-4"><SkeletonCards count={4} /></div></> : <>
       {state.batch && <NextClass batch={state.batch} />}
       <dl className="stat-strip mt-4">
-        <div className="stat"><dt>Attendance</dt><dd>{overall.rate === null ? '—' : percent.format(overall.rate)}</dd></div>
+        <div className="stat" data-tone="brand"><dt>Attendance</dt><dd>{overall.rate === null ? '—' : percent.format(overall.rate)}</dd></div>
         <div className="stat"><dt>Classes attended</dt><dd>{overall.attended} <small className="text-sm font-normal text-muted">of {overall.marked}</small></dd></div>
         <div className="stat"><dt>Homework</dt><dd>{state.homework.length}</dd></div>
         <div className="stat"><dt>{latestTuition ? formatBillingMonth(latestTuition.month) : 'Tuition'}</dt><dd className="!text-base !font-medium">{latestTuition ? <StatusPill status={latestTuition.status} /> : 'No records'}</dd></div>
@@ -104,7 +104,7 @@ export function StudentAttendance() {
     <PageHeader title="Attendance" description="Present and Late count as attended. Sick and Absent don't." />
     {account.isActive === false && <Notice tone="warn" className="mb-4">You're no longer enrolled. This is a read-only record.</Notice>}
     {state.error && <Notice tone="error" className="mb-4">{state.error}</Notice>}
-    {state.loading ? <LoadingState>Loading attendance…</LoadingState> : <>
+    {state.loading ? <><SkeletonCards count={3} /><div className="panel mt-4"><SkeletonRows rows={6} label="Loading attendance…" /></div></> : <>
       <dl className="stat-strip">
         {summaries.map(([label, summary]) => (
           <div key={label} className="stat"><dt>{label}</dt><dd>{summary.rate === null ? '—' : percent.format(summary.rate)}</dd><span className="text-sm text-muted">{summary.attended} of {summary.marked} classes</span></div>

@@ -24,7 +24,7 @@ export default function CurriculumDetails() {
     <>
       <PageHeader title="Course books"
         description="The course follows the 12 student books of this series, from first words to confident speaking, writing, listening and presenting.">
-        <p lang="ar" dir="rtl" className="mt-3 w-fit text-3xl leading-relaxed text-teal">العربية بين يدي أولادنا</p>
+        <p lang="ar" dir="rtl" className="mt-3 w-fit text-3xl leading-relaxed text-brand">العربية بين يدي أولادنا</p>
       </PageHeader>
       <ol aria-label="Course books" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
         {curriculumBooks.map(book => (

@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { CheckCheck, Plus, Trash2 } from 'lucide-react'
 import { AdminBatchPage } from '../admin/AdminBatchPage.jsx'
-import { EmptyState, LoadingState, Notice } from '../../components/ui.jsx'
+import { EmptyState, Notice, Person, SkeletonRows, useToast } from '../../components/ui.jsx'
 import './staffAttendance.css'
 import { createSession, deleteSession, listSessions, markOptions, saveMark, sessionTypes } from './attendanceRepository.js'
 
 const today = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Dhaka', dateStyle: 'short' }).format(new Date())
+const markTones = { Present: 'ok', Late: 'warn', Sick: 'violet', Absent: 'danger' }
 const sessionTypeLabel = type => (type === 'Physical' ? 'In person' : type)
 
 function BatchAttendance({ batchId, batch, students }) {
@@ -15,7 +16,9 @@ function BatchAttendance({ batchId, batch, students }) {
   const [state, setState] = useState({ sessions: [], loading: true, error: '' })
   const [actionError, setActionError] = useState('')
   const [markErrors, setMarkErrors] = useState({})
-  const [savingFor, setSavingFor] = useState('')
+  const [saving, setSaving] = useState({})
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const toast = useToast()
   const [creating, setCreating] = useState(false)
   const requestId = useRef(0)
 
@@ -42,16 +45,60 @@ function BatchAttendance({ batchId, batch, students }) {
 
   async function addSession(event) {
     event.preventDefault(); setActionError(''); setCreating(true)
-    try { const created = await createSession(batchId, date, type); await load(created.id) } catch { setActionError('The session could not be created. Check the date and try again.') } finally { setCreating(false) }
+    try {
+      const created = await createSession(batchId, date, type)
+      await load(created.id)
+      toast(`${sessionTypeLabel(type)} session started for ${batch}.`)
+    } catch { setActionError('The session could not be started. Check the date and try again.') } finally { setCreating(false) }
   }
   async function removeSession() {
     if (!session || session.markCount > 0) return
-    try { await deleteSession(session.id); await load() } catch { setActionError('Only a session with no marks can be deleted.') }
+    try { await deleteSession(session.id); await load(); toast('Empty session deleted.') } catch { setActionError('Only a session with no marks can be deleted.') }
+  }
+
+  // Marks change on screen immediately and save in the background; a failed save puts the old mark back.
+  function applyMark(sessionId, studentUuid, mark) {
+    setState(current => ({ ...current, sessions: current.sessions.map(item => {
+      if (item.id !== sessionId) return item
+      const marks = { ...item.marks }
+      if (mark) marks[studentUuid] = mark
+      else delete marks[studentUuid]
+      return { ...item, marks, markCount: Object.keys(marks).length }
+    }) }))
+  }
+  async function persistMark(sessionId, student, mark, previous) {
+    setSaving(current => ({ ...current, [student.uuid]: true }))
+    try {
+      await saveMark({ sessionId, studentUuid: student.uuid, mark })
+      return true
+    } catch (error) {
+      applyMark(sessionId, student.uuid, previous)
+      setMarkErrors(current => ({ ...current, [student.uuid]: error?.code === '42501' ? 'ineligible' : true }))
+      return false
+    } finally {
+      setSaving(current => ({ ...current, [student.uuid]: false }))
+    }
   }
   async function updateMark(student, mark) {
     if (!session) { setActionError('Start a session before marking attendance.'); return }
-    setSavingFor(student.uuid)
-    try { await saveMark({ sessionId: session.id, studentUuid: student.uuid, mark }); setMarkErrors(current => ({ ...current, [student.uuid]: false })); await load(session.id) } catch (error) { setMarkErrors(current => ({ ...current, [student.uuid]: error?.code === '42501' ? 'ineligible' : true })) } finally { setSavingFor('') }
+    const previous = session.marks[student.uuid] ?? null
+    if (previous === mark) return
+    setMarkErrors(current => ({ ...current, [student.uuid]: false }))
+    applyMark(session.id, student.uuid, mark)
+    const ok = await persistMark(session.id, student, mark, previous)
+    if (!ok) toast(`Couldn't save ${student.name}'s mark. It was put back.`, 'error')
+  }
+  async function markRestPresent() {
+    if (!session) return
+    const rest = roster.filter(student => student.mark === 'Unmarked')
+    if (!rest.length) return
+    setBulkSaving(true)
+    rest.forEach(student => applyMark(session.id, student.uuid, 'Present'))
+    const results = await Promise.all(rest.map(student => persistMark(session.id, student, 'Present', null)))
+    setBulkSaving(false)
+    const failed = results.filter(ok => !ok).length
+    if (failed) toast(`${rest.length - failed} marked present. ${failed} couldn't be saved.`, 'error')
+    else toast(`${rest.length} ${rest.length === 1 ? 'student' : 'students'} marked present.`)
   }
 
   return <>
@@ -83,8 +130,8 @@ function BatchAttendance({ batchId, batch, students }) {
 
     {session && (
       <dl className="stat-strip mt-4">
-        {markOptions.map(mark => <div key={mark} className="stat"><dt>{mark}</dt><dd>{totals[mark]}</dd></div>)}
-        <div className="stat"><dt>Not marked yet</dt><dd>{totals.Unmarked}</dd></div>
+        {markOptions.map(mark => <div key={mark} className="stat" data-tone={markTones[mark]}><dt>{mark}</dt><dd>{totals[mark]}</dd></div>)}
+        <div className="stat" data-tone="brand"><dt>Not marked yet</dt><dd>{totals.Unmarked}</dd></div>
       </dl>
     )}
 
@@ -94,24 +141,31 @@ function BatchAttendance({ batchId, batch, students }) {
           <h2 id="roster-title">{batch} roster</h2>
           <p>{session ? `${sessionTypeLabel(session.type)} session on this date. Marks save as you tap.` : 'Start a session to mark attendance.'}</p>
         </div>
-        {session && session.markCount === 0 && (
-          <button type="button" className="btn btn-danger-quiet btn-sm" onClick={removeSession}>
-            <Trash2 size={15} aria-hidden="true" /> Delete empty session
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {session && totals.Unmarked > 0 && (
+            <button type="button" className="btn btn-secondary btn-sm" disabled={bulkSaving} onClick={markRestPresent}>
+              <CheckCheck size={16} aria-hidden="true" /> {bulkSaving ? 'Saving…' : `Mark the rest present (${totals.Unmarked})`}
+            </button>
+          )}
+          {session && session.markCount === 0 && (
+            <button type="button" className="btn btn-danger-quiet btn-sm" onClick={removeSession}>
+              <Trash2 size={15} aria-hidden="true" /> Delete empty session
+            </button>
+          )}
+        </div>
       </div>
       {!students.length ? <EmptyState title="No students in this batch">Add students from the Students page.</EmptyState>
-        : state.loading && !state.sessions.length ? <LoadingState />
+        : state.loading && !state.sessions.length ? <SkeletonRows rows={6} label="Loading roster…" />
           : <table className="data-table attendance-roster" aria-label="Attendance roster">
             <thead><tr><th scope="col">Student</th><th scope="col">Mark</th></tr></thead>
             <tbody>{roster.map(student => (
               <tr key={student.uuid} className={session && student.mark === 'Unmarked' ? 'roster-row-unmarked' : undefined}>
-                <th scope="row">{student.name}<span className="cell-sub">{student.id}</span></th>
+                <th scope="row"><Person name={student.name} sub={student.id} /></th>
                 <td>
-                  <div role="group" aria-label={`Attendance for ${student.name}`} className="mark-group" aria-busy={savingFor === student.uuid}>
-                    {markOptions.map(mark => <button key={mark} type="button" disabled={!session || savingFor === student.uuid} data-mark={mark} aria-pressed={student.mark === mark} onClick={() => updateMark(student, mark)}>{mark}</button>)}
+                  <div role="group" aria-label={`Attendance for ${student.name}`} className="mark-group" aria-busy={Boolean(saving[student.uuid])}>
+                    {markOptions.map(mark => <button key={mark} type="button" disabled={!session} data-mark={mark} aria-pressed={student.mark === mark} onClick={() => updateMark(student, mark)}>{mark}</button>)}
                   </div>
-                  {markErrors[student.uuid] && <p className="field-error" role="alert">{markErrors[student.uuid] === 'ineligible' ? `${student.name} wasn't in this batch on this date.` : `Couldn't save this mark. Tap it again.`}</p>}
+                  {markErrors[student.uuid] && <p className="field-error" role="alert">{markErrors[student.uuid] === 'ineligible' ? `${student.name} wasn't in this batch on this date.` : `Couldn't save. Tap the mark again.`}</p>}
                 </td>
               </tr>
             ))}</tbody>

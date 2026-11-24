@@ -1,28 +1,28 @@
 .dash-grid { display: grid; gap: 1rem; margin-top: 1rem; }
 @media (min-width: 960px) { .dash-grid { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); } }
 
-.today-card { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.35rem 1.5rem; border-radius: var(--radius-lg); background: var(--teal-deep); color: #eaf4f3; }
-.today-card > svg { position: absolute; inset: 0; z-index: -1; mask-image: linear-gradient(90deg, transparent 35%, #000); }
-.today-card h2 { font-size: 1.35rem; font-weight: 500; color: #fff; }
-.today-card p { margin-top: .2rem; color: #b9d3d0; }
-.today-card .btn-primary { background: var(--gilt); color: #231a05; }
-.today-card .btn-primary:hover { background: #d6a646; }
+.today-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 1.5rem; padding: 1.6rem 1.75rem; border-radius: 1.35rem; box-shadow: var(--shadow-lift); }
+.today-card > svg { mask-image: linear-gradient(90deg, transparent 30%, #000); }
+.today-card h2 { font-size: 1.45rem; font-weight: 700; letter-spacing: -.02em; color: #fff; }
+.today-card p { margin-top: .25rem; color: #b8c7ee; }
+.today-card .btn-primary { background: #fff; color: var(--brand-deep); box-shadow: 0 8px 20px -8px #00000080; }
+.today-card .btn-primary:hover { background: #f1f5ff; }
 
 .progress-list li { display: grid; gap: .4rem; padding: .85rem 1.25rem; border-top: 1px solid var(--line); }
 .progress-list li:first-child { border-top: 0; }
 .progress-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem 1rem; font-size: .925rem; }
 .progress-row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
-.progress-bar { height: .4rem; border-radius: 999px; background: var(--surface-sunk); overflow: hidden; }
-.progress-bar span { display: block; height: 100%; border-radius: inherit; background: var(--teal); }
-.progress-bar span[data-done="true"] { background: var(--ok); }
+.progress-bar { height: .5rem; border-radius: 999px; background: #e9eef8; overflow: hidden; }
+.progress-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand-glow), var(--brand)); }
+.progress-bar span[data-done="true"] { background: linear-gradient(90deg, #2fb37a, var(--ok)); }
 
-.link-list a { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1.25rem; border-top: 1px solid var(--line); color: var(--ink); transition: background-color var(--ease); }
+.link-list a { font-weight: 500; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1.25rem; border-top: 1px solid var(--line); color: var(--ink); transition: background-color var(--ease); }
 .link-list li:first-child a { border-top: 0; }
-.link-list a:hover { background: var(--surface-sunk); color: var(--teal); }
+.link-list a:hover { background: var(--surface-sunk); color: var(--brand); }
 .link-list a svg { color: var(--muted); flex: none; }
 
-.money { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.money { font-size: 1.9rem; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 .tuition-breakdown { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; margin-top: 1rem; }
-.tuition-breakdown div { padding: .6rem .75rem; border-radius: var(--radius); background: var(--surface-sunk); }
+.tuition-breakdown div { padding: .65rem .8rem; border-radius: var(--radius); background: var(--surface-sunk); box-shadow: inset 0 0 0 1px var(--line); }
 .tuition-breakdown dt { font-size: .78rem; color: var(--muted); }
-.tuition-breakdown dd { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tuition-breakdown dd { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }

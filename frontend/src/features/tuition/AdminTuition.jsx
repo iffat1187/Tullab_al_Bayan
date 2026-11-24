@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AdminBatchPage, fieldClass } from '../admin/AdminBatchPage.jsx'
 import { formatBillingMonth, formatTuitionAmount } from './tuitionFormat.js'
-import { EmptyState, LoadingState, Notice, StatusPill } from '../../components/ui.jsx'
+import { Check } from 'lucide-react'
+import { EmptyState, Notice, Person, SkeletonRows, StatusPill, useToast } from '../../components/ui.jsx'
 import { TuitionHistory } from './StudentTuition.jsx'
 import { listRoster } from '../roster/rosterRepository.js'
 import {
@@ -29,6 +30,8 @@ const emptyByStatus = {
   [noAmountDueStatus]: 'No students with zero fees due for this batch and month.',
   [notGeneratedStatus]: 'Every student in this batch has a record for this month.',
 }
+
+const statusTones = { Paid: 'ok', Unpaid: 'danger', [coveredStatus]: 'brand', [feeNotSetStatus]: 'warn' }
 
 const filterStatuses = [...tuitionStatuses, notGeneratedStatus]
 
@@ -58,8 +61,23 @@ function TuitionRow({ student, record, mode, onSaved }) {
   const due = scholarship === 100 ? 0 : parsed.value == null ? null : Math.round(parsed.value * (100 - scholarship)) / 100
   const paymentDisabled = due == null || due <= 0
   const rowStatus = effectiveStatus(record, scholarship, due)
+  const effectivePayment = paymentDisabled ? 'Unpaid' : payment
+  const dirty = Boolean(record) && !parsed.error && (
+    (parsed.value ?? null) !== (record.baseFee ?? null) || scholarship !== record.scholarship || effectivePayment !== record.payment)
 
-  async function save() {
+  function reset() {
+    setFee(record?.baseFee?.toFixed(2) ?? '')
+    setScholarship(record?.scholarship ?? student.defaultScholarshipPercent ?? 0)
+    setPayment(record?.payment ?? 'Unpaid')
+    setError('')
+  }
+
+  function onKeyDown(event) {
+    if (event.key === 'Enter' && dirty) { event.preventDefault(); save() }
+    if (event.key === 'Escape') reset()
+  }
+
+  async function save(nextPayment = payment) {
     if (!record) {
       setError('Generate this month before editing its record.')
       return
@@ -75,9 +93,13 @@ function TuitionRow({ student, record, mode, onSaved }) {
     setError('')
     try {
       // Nothing is payable when the fee is unset or fully waived, so the record cannot stay Paid.
-      await saveTuition(record, { baseFee: parsed.value, scholarship, payment: paymentDisabled ? 'Unpaid' : payment })
-      onSaved(student.name)
+      const savedPayment = paymentDisabled ? 'Unpaid' : nextPayment
+      await saveTuition(record, { baseFee: parsed.value, scholarship, payment: savedPayment })
+      onSaved(mode === 'payment'
+        ? `${student.name} marked ${savedPayment.toLowerCase()}.`
+        : `Tuition saved for ${student.name}.`)
     } catch (caught) {
+      if (mode === 'payment') setPayment(record.payment)
       setError(caught.message || 'The tuition record could not be saved.')
     } finally {
       setSaving(false)
@@ -85,10 +107,9 @@ function TuitionRow({ student, record, mode, onSaved }) {
   }
 
   return (
-    <tr>
+    <tr data-dirty={dirty || undefined} onKeyDown={onKeyDown}>
       <th scope="row">
-        {student.name}
-        <span className="cell-sub">{student.id}{student.note ? ', ' + student.note.toLowerCase() : ''}</span>
+        <Person name={student.name} sub={student.id + (student.note ? ', ' + student.note.toLowerCase() : '')} />
       </th>
       <td>
         {mode === 'payment' ? (
@@ -130,7 +151,12 @@ function TuitionRow({ student, record, mode, onSaved }) {
             aria-label={`Payment for ${student.name}`}
             className={fieldClass}
             value={payment}
-            onChange={event => { setPayment(event.target.value); setError('') }}
+            disabled={saving}
+            onChange={event => {
+              setPayment(event.target.value); setError('')
+              // On the Payments page a change is the whole task, so it saves right away.
+              if (mode === 'payment') save(event.target.value)
+            }}
           >
             {paymentStatuses.map(value => <option key={value}>{value}</option>)}
           </select>
@@ -138,11 +164,20 @@ function TuitionRow({ student, record, mode, onSaved }) {
           <StatusPill status={rowStatus} />
         )}
       </td>
-      <td>
-        <button type="button" className="btn btn-secondary btn-sm" disabled={!record || saving} onClick={save}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-        {error && <p role="alert" className="field-error max-w-xs">{error}</p>}
+      <td className="w-px whitespace-nowrap">
+        {mode === 'payment' ? (
+          saving ? <span className="text-sm text-muted">Saving…</span> : null
+        ) : dirty || saving ? (
+          <span className="row-actions">
+            <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={() => save()}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            {!saving && <button type="button" className="btn btn-ghost btn-sm" onClick={reset}>Undo</button>}
+          </span>
+        ) : record ? (
+          <span className="saved-mark" title="No unsaved changes"><Check size={16} aria-hidden="true" /><span className="sr-only">Saved</span></span>
+        ) : null}
+        {error && <p role="alert" className="field-error max-w-xs whitespace-normal">{error}</p>}
       </td>
     </tr>
   )
@@ -151,6 +186,7 @@ function TuitionRow({ student, record, mode, onSaved }) {
 function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) {
   const [state, setState] = useState({ records: [], loading: true, error: '' })
   const [notice, setNotice] = useState(null)
+  const toast = useToast()
   const [generating, setGenerating] = useState(false)
   const [filter, setFilter] = useState('All statuses')
   const [search, setSearch] = useState('')
@@ -225,10 +261,8 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
     setNotice(null)
     try {
       const count = await generateMonthlyTuition(month, batchId)
-      await load({
-        message: `${count} tuition record${count === 1 ? '' : 's'} generated for ${batch}.`,
-        error: false,
-      })
+      await load()
+      toast(count ? `${count} tuition record${count === 1 ? '' : 's'} created for ${batch}.` : `Every ${batch} student already has a record for this month.`)
     } catch {
       setNotice({ message: 'Monthly tuition could not be generated.', error: true })
     } finally {
@@ -307,6 +341,7 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
             type="button"
             aria-pressed={filter === status}
             className="stat"
+            data-tone={statusTones[status]}
             onClick={() => selectFilter(filter === status ? 'All statuses' : status)}
           >
             <span className="stat-label">{status}</span>
@@ -315,13 +350,13 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
         ))}
       </section>
       <p className="mt-2 text-sm text-muted">
-        {filter === 'All statuses' ? 'Tap a number to show only those students.' : <>Showing {filter.toLowerCase()} only. <button type="button" className="text-teal underline" onClick={() => selectFilter('All statuses')}>Show everyone</button></>}
+        {filter === 'All statuses' ? 'Tap a number to show only those students.' : <>Showing {filter.toLowerCase()} only. <button type="button" className="text-brand underline" onClick={() => selectFilter('All statuses')}>Show everyone</button></>}
         {[noAmountDueStatus, notGeneratedStatus].filter(status => counts[status] > 0).map(status => ` ${status}: ${counts[status]}.`)}
       </p>
 
       <section className="panel mt-4" aria-label="Tuition roster">
-        {state.loading ? (
-          <LoadingState>Loading tuition…</LoadingState>
+        {state.loading && !state.records.length ? (
+          <SkeletonRows rows={6} label="Loading tuition…" />
         ) : !roster.length ? (
           <EmptyState title="No students in this batch">Add students from the Students page.</EmptyState>
         ) : !rows.length ? (
@@ -343,7 +378,7 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
                     student={student}
                     record={record}
                     mode={mode}
-                    onSaved={studentName => load({ message: `Tuition saved for ${studentName}.`, error: false })}
+                    onSaved={message => { toast(message); load() }}
                   />
                 ))}
               </tbody>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Link2, Pencil, Plus, RotateCcw, Upload, UserMinus, X } from 'lucide-react'
-import { BatchSwitcher, EmptyState, LoadingState, Notice, PageHeader, StatusPill } from '../../components/ui.jsx'
+import { Download, Link2, Pencil, Plus, RotateCcw, Upload, UserMinus, UserX, X } from 'lucide-react'
+import { BatchSwitcher, EmptyState, Notice, PageHeader, Person, SkeletonRows, StatusPill, useToast } from '../../components/ui.jsx'
 import { listBatches } from './batchRepository.js'
 import { createLogger } from '../../lib/logger.js'
 import {
@@ -188,7 +188,7 @@ function AccountLinkPanel({ students, pendingUsers, onChanged }) {
       {!unlinked.length ? <EmptyState>Every active student is linked.</EmptyState> : (
         <div className="table-scroll"><table className="data-table"><thead><tr><th>Student</th><th>Waiting account</th><th><span className="sr-only">Action</span></th></tr></thead><tbody>
           {unlinked.map(student => <tr key={student.uuid}>
-            <th scope="row">{student.name}<span className="cell-sub">{student.email || 'No email on record'}</span></th>
+            <th scope="row"><Person name={student.name} sub={student.email || 'No email on record'} /></th>
             <td><select className="field min-w-56" aria-label={`Account for ${student.name}`} value={selected[student.uuid] ?? ''} onChange={event => setSelected(current => ({ ...current, [student.uuid]: event.target.value }))}><option value="">Choose an account</option>{pendingUsers.map(user => <option key={user.userId} value={user.userId}>{user.email || user.fullName}</option>)}</select></td>
             <td className="text-right"><button type="button" disabled={busy === student.uuid || !selected[student.uuid]} className="btn btn-secondary btn-sm" onClick={() => link(student)}><Link2 size={15} aria-hidden="true" /> Link</button></td>
           </tr>)}
@@ -205,7 +205,7 @@ export default function StudentManagement() {
   const [search, setSearch] = useState('')
   const [editor, setEditor] = useState(null)
   const [importOpen, setImportOpen] = useState(false)
-  const [notice, setNotice] = useState(null)
+  const toast = useToast()
 
   async function load() {
     setData(current => ({ ...current, loading: true, error: '' }))
@@ -227,11 +227,11 @@ export default function StudentManagement() {
 
   async function toggleActive(student) {
     if (student.isActive && !window.confirm(`Deactivate ${student.name}? They lose access to homework and are left out of attendance and new tuition.`)) return
-    try { if (student.isActive) await deactivateStudent(student.uuid); else await reactivateStudent(student.uuid); setNotice({ tone: 'success', text: `${student.name} was ${student.isActive ? 'deactivated' : 'reactivated'}.` }); await load() } catch { setNotice({ tone: 'error', text: 'The student status could not be changed.' }) }
+    try { if (student.isActive) await deactivateStudent(student.uuid); else await reactivateStudent(student.uuid); toast(`${student.name} was ${student.isActive ? 'deactivated' : 'reactivated'}.`); await load() } catch { toast('The student status could not be changed.', 'error') }
   }
   async function unlink(student) {
     if (!window.confirm(`Unlink ${student.name}'s Google account? They will lose portal access until linked again.`)) return
-    try { await unlinkStudentAccount(student.uuid); setNotice({ tone: 'success', text: `${student.name}'s account was unlinked.` }); await load() } catch { setNotice({ tone: 'error', text: 'The account could not be unlinked.' }) }
+    try { await unlinkStudentAccount(student.uuid); toast(`${student.name}'s account was unlinked.`); await load() } catch { toast('The account could not be unlinked.', 'error') }
   }
   function newStudent() { setEditor({ uuid: null, id: '', name: '', email: '', batchId: batchId ?? data.batches[0]?.id ?? 1, defaultMonthlyFee: '', defaultScholarshipPercent: 0 }) }
 
@@ -242,8 +242,7 @@ export default function StudentManagement() {
         <button type="button" className="btn btn-primary" onClick={newStudent} disabled={!data.batches.length}><Plus size={16} aria-hidden="true" /> Add student</button>
       </>} />
     {data.error && <Notice tone="error" className="mb-4" action={<button type="button" className="btn btn-secondary btn-sm" onClick={load}>Try again</button>}>{data.error}</Notice>}
-    {notice && <Notice tone={notice.tone} className="mb-4" action={<button type="button" className="btn btn-ghost btn-sm" aria-label="Dismiss" onClick={() => setNotice(null)}><X size={16} /></button>}>{notice.text}</Notice>}
-    {data.loading && !data.students.length ? <LoadingState>Loading students…</LoadingState> : <>
+    {data.loading && !data.students.length ? <div className="panel"><SkeletonRows rows={7} label="Loading students…" /></div> : <>
       <BatchSwitcher batches={data.batches} selectedId={batchId} onSelect={setBatchId} counts={counts} allLabel="All batches" />
       <section className="panel" aria-labelledby="students-title">
         <div className="panel-head">
@@ -259,23 +258,25 @@ export default function StudentManagement() {
         {visible.length ? <div className="table-scroll"><table className="data-table">
           <thead><tr><th>Student</th>{batchId === null && <th>Batch</th>}<th>Google email</th><th className="num">Monthly fee</th><th>Scholarship</th><th>Sign-in</th><th><span className="sr-only">Actions</span></th></tr></thead>
           <tbody>{visible.map(student => <tr key={student.uuid}>
-            <th scope="row" className="whitespace-nowrap">{student.name}<span className="cell-sub">{student.id}</span></th>
+            <th scope="row" className="whitespace-nowrap"><Person name={student.name} sub={student.id} /></th>
             {batchId === null && <td>{student.batch}</td>}
             <td className="whitespace-nowrap">{student.email || <span className="text-danger">Missing</span>}</td>
             <td className="num">{student.defaultMonthlyFee == null ? <span className="text-muted">Not set</span> : `৳${student.defaultMonthlyFee.toLocaleString('en-BD')}`}</td>
             <td>{student.defaultScholarshipPercent ? `${student.defaultScholarshipPercent}%` : <span className="text-muted">None</span>}</td>
             <td>{student.linkedUserId ? <StatusPill status="Linked" /> : <StatusPill tone="neutral">Not signed in yet</StatusPill>}</td>
-            <td><div className="flex justify-end gap-1 whitespace-nowrap">
-              {student.isActive && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditor(student)}><Pencil size={15} aria-hidden="true" /> Edit</button>}
+            <td><div className="flex justify-end gap-0.5 whitespace-nowrap">
+              {student.isActive && <button type="button" className="btn btn-ghost btn-sm" title="Edit" aria-label={`Edit ${student.name}`} onClick={() => setEditor(student)}><Pencil size={16} aria-hidden="true" /></button>}
               {student.linkedUserId && <button type="button" className="btn btn-ghost btn-sm" title="Unlink Google account" aria-label={`Unlink ${student.name}'s Google account`} onClick={() => unlink(student)}><UserMinus size={15} aria-hidden="true" /></button>}
-              <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => toggleActive(student)}>{student.isActive ? 'Deactivate' : <><RotateCcw size={15} aria-hidden="true" /> Reactivate</>}</button>
+              {student.isActive
+                ? <button type="button" className="btn btn-ghost btn-sm text-danger" title="Deactivate" aria-label={`Deactivate ${student.name}`} onClick={() => toggleActive(student)}><UserX size={16} aria-hidden="true" /></button>
+                : <button type="button" className="btn btn-ghost btn-sm" onClick={() => toggleActive(student)}><RotateCcw size={15} aria-hidden="true" /> Reactivate</button>}
             </div></td>
           </tr>)}</tbody>
         </table></div> : <EmptyState title={query ? 'No matching students' : 'No students here yet'}>{query ? 'Try a different name or ID.' : showActive ? 'Add a student or import a CSV file.' : 'Deactivated students appear here.'}</EmptyState>}
       </section>
       {data.pendingUsers.length > 0 && <AccountLinkPanel students={data.students} pendingUsers={data.pendingUsers} onChanged={load} />}
     </>}
-    {editor && <StudentForm student={editor} batches={data.batches} onCancel={() => setEditor(null)} onSaved={async student => { setEditor(null); setNotice({ tone: 'success', text: `${student.name} was saved.` }); await load() }} />}
+    {editor && <StudentForm student={editor} batches={data.batches} onCancel={() => setEditor(null)} onSaved={async student => { setEditor(null); toast(`${student.name} was saved.`); await load() }} />}
     {importOpen && <CsvImportDialog onClose={() => setImportOpen(false)} onImported={load} />}
   </>
 }

@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { formatDate } from '../../lib/formatDate.js'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { AdminBatchPage, buttonClass, fieldClass } from '../admin/AdminBatchPage.jsx'
-import { EmptyState, LoadingState, Notice, PageHeader, StatusPill } from '../../components/ui.jsx'
+import { EmptyState, LoadingState, Notice, PageHeader, StatusPill, useToast } from '../../components/ui.jsx'
 import { deleteHomework, listHomework, saveHomework } from './homeworkRepository.js'
 
 const dhakaDateFormatter = new Intl.DateTimeFormat('sv-SE', {
@@ -37,7 +37,7 @@ function HomeworkList({ assignments, actions, emptyText = 'No homework has been 
               <h3 className="text-lg break-words">{item.title}</h3>
               {item.deadline && (isOverdue
                 ? <StatusPill status="Overdue">Was due {formatDate(item.deadline)}</StatusPill>
-                : <StatusPill tone="teal">Due {formatDate(item.deadline)}</StatusPill>)}
+                : <StatusPill tone="brand">Due {formatDate(item.deadline)}</StatusPill>)}
             </div>
             <p className="mt-1 text-sm text-muted">
               Published <time dateTime={item.publishedAt}>{formatPublishedDate(item.publishedAt)}</time>
@@ -102,6 +102,7 @@ function BatchHomework({ batch, batchId }) {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [result, setResult] = useState(null)
+  const toast = useToast()
 
   const reload = useCallback(() => {
     setReloadToken(value => value + 1)
@@ -167,11 +168,8 @@ function BatchHomework({ batch, batchId }) {
       const refreshed = await listHomework(batchId)
       setAssignments(refreshed)
       setForm(null)
-      setResult({
-        message: wasEdit
-          ? 'Homework updated for the ' + batch + ' batch.'
-          : 'Homework published to the ' + batch + ' batch.',
-      })
+      setResult(null)
+      toast(wasEdit ? 'Homework updated.' : `Homework published to the ${batch} batch.`)
     } catch (error) {
       setResult({ error: true, message: error?.message || 'Homework could not be saved. Please try again.' })
     } finally {
@@ -189,7 +187,7 @@ function BatchHomework({ batch, batchId }) {
       const refreshed = await listHomework(batchId)
       setAssignments(refreshed)
       setDeleteTarget(null)
-      setResult({ message: 'Homework deleted.' })
+      toast('Homework deleted.')
     } catch (error) {
       setDeleteError(error?.message || 'Homework could not be deleted. Please try again.')
     } finally {

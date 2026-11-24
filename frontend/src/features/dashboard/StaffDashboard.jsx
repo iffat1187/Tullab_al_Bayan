@@ -3,7 +3,7 @@ import { BookOpenCheck, ChevronRight, ClipboardCheck, CreditCard, Tags, Users } 
 import './staffDashboard.css'
 import { Link, useOutletContext } from 'react-router-dom'
 import { formatDate } from '../../lib/formatDate.js'
-import { EmptyState, KhatamPattern, LoadingState, Notice, PageHeader } from '../../components/ui.jsx'
+import { EmptyState, KhatamPattern, LoadingState, Notice, PageHeader, SkeletonCards, SkeletonRows } from '../../components/ui.jsx'
 import { academicCalendar, classDate } from '../academics/academicRepository.js'
 import { listHomework } from '../homework/homeworkRepository.js'
 import { listSessions, markOptions } from '../attendance/attendanceRepository.js'
@@ -29,8 +29,8 @@ const shortcuts = {
 function TodayCard({ role, todaysClasses, upcoming }) {
   const first = todaysClasses[0]
   return (
-    <section className="today-card" aria-label="Today's class">
-      <KhatamPattern opacity={0.3} />
+    <section className="today-card brand-surface" aria-label="Today's class">
+      <KhatamPattern opacity={0.1} />
       <div>
         {first ? <>
           <h2>{todaysClasses.map(item => item.batch).join(' and ')} batch today</h2>
@@ -104,7 +104,7 @@ function TuitionSummary({ month, onMonthChange }) {
           : state.loading ? <LoadingState />
             : state.error ? <Notice tone="error">{state.error}</Notice>
               : !state.records.length ? (
-                <p className="text-muted">Tuition for {formatBillingMonth(month)} hasn’t been generated yet. <Link className="text-teal underline" to={'/admin/tuition?month=' + encodeURIComponent(month)}>Generate it</Link></p>
+                <p className="text-muted">Tuition for {formatBillingMonth(month)} hasn’t been generated yet. <Link className="text-brand underline" to={'/admin/tuition?month=' + encodeURIComponent(month)}>Generate it</Link></p>
               ) : <>
                 <p className="text-sm text-muted">Still to collect for {formatBillingMonth(month)}</p>
                 <p className="money">{formatTuitionAmount(outstanding)}</p>
@@ -181,7 +181,7 @@ function DashboardData({ role }) {
     return () => { active = false }
   }, [role, today, reloadToken])
 
-  if (state.loading) return <LoadingState>Loading today’s overview…</LoadingState>
+  if (state.loading) return <><div className="today-card skeleton-hero" aria-hidden="true" /><div className="mt-4"><SkeletonCards count={5} /></div><div className="panel mt-4"><SkeletonRows rows={3} /></div></>
   if (state.error) {
     return <Notice tone="error" action={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setReloadToken(value => value + 1)}>Try again</button>}>{state.error}</Notice>
   }
@@ -196,11 +196,11 @@ function DashboardData({ role }) {
     <TodayCard role={role} todaysClasses={todaysClasses} upcoming={upcoming} />
     {role === 'admin' && (
       <dl className="stat-strip mt-4">
-        <div className="stat"><dt>Active students</dt><dd>{state.students.length}</dd></div>
+        <div className="stat" data-tone="brand"><dt>Active students</dt><dd>{state.students.length}</dd></div>
         <div className="stat"><dt>Batches</dt><dd>{state.batches.length}</dd></div>
         <div className="stat"><dt>Sessions today</dt><dd>{state.sessions.length}</dd></div>
-        <div className="stat"><dt>Present or late today</dt><dd>{marks.filter(mark => mark === 'Present' || mark === 'Late').length}</dd></div>
-        <div className="stat"><dt>Absent today</dt><dd>{marks.filter(mark => mark === 'Absent').length}</dd></div>
+        <div className="stat" data-tone="ok"><dt>Present or late today</dt><dd>{marks.filter(mark => mark === 'Present' || mark === 'Late').length}</dd></div>
+        <div className="stat" data-tone="danger"><dt>Absent today</dt><dd>{marks.filter(mark => mark === 'Absent').length}</dd></div>
       </dl>
     )}
     <div className="dash-grid">
