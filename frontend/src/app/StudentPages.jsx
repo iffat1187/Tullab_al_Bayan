@@ -1,29 +1,54 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowRight, BookOpen, CalendarDays, CreditCard } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { formatDate } from '../lib/formatDate.js'
+import { EmptyState, KhatamPattern, LoadingState, Notice, PageHeader, StatusPill } from '../components/ui.jsx'
+import { listBatches } from '../features/admin/batchRepository.js'
+import { classDate } from '../features/academics/academicRepository.js'
+import { nextClassDate, scheduledClasses } from '../features/academics/studentSchedule.js'
 import { listHomework } from '../features/homework/homeworkRepository.js'
-import { listStudentAttendance, markOptions } from '../features/attendance/attendanceRepository.js'
+import { listStudentAttendance } from '../features/attendance/attendanceRepository.js'
 import { listStudentTuition } from '../features/tuition/tuitionRepository.js'
-import { formatBillingMonth } from '../features/tuition/tuitionFormat.js'
-import './student.css'
+import { formatBillingMonth, formatTuitionAmount } from '../features/tuition/tuitionFormat.js'
+import '../features/dashboard/staffDashboard.css'
 
-const percent = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 1 })
+const percent = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 })
+const longDate = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const emptyAttendance = { history: [], summary: { physical: { attended: 0, marked: 0, rate: null }, online: { attended: 0, marked: 0, rate: null }, overall: { attended: 0, marked: 0, rate: null } } }
 
 function useStudentOverview(account) {
-  const [state, setState] = useState({ attendance: emptyAttendance, tuition: [], homework: [], loading: true, error: '' })
+  const [state, setState] = useState({ attendance: emptyAttendance, tuition: [], homework: [], batch: null, loading: true, error: '' })
   useEffect(() => {
     let active = true
+    const enrolled = account.isActive && account.batchId
     Promise.all([
       listStudentAttendance(account.studentUuid),
       listStudentTuition(account.studentUuid),
-      account.isActive && account.batchId ? listHomework(account.batchId) : Promise.resolve([]),
-    ]).then(([attendance, tuition, homework]) => { if (active) setState({ attendance, tuition, homework, loading: false, error: '' }) })
-      .catch(() => { if (active) setState(current => ({ ...current, loading: false, error: 'Student information could not be loaded. Refresh to try again.' })) })
+      enrolled ? listHomework(account.batchId) : Promise.resolve([]),
+      enrolled ? listBatches().catch(() => []) : Promise.resolve([]),
+    ]).then(([attendance, tuition, homework, batches]) => {
+      if (active) setState({ attendance, tuition, homework, batch: batches.find(item => item.id === account.batchId) ?? null, loading: false, error: '' })
+    }).catch(() => { if (active) setState(current => ({ ...current, loading: false, error: 'Your information could not be loaded. Refresh the page to try again.' })) })
     return () => { active = false }
   }, [account.studentUuid, account.batchId, account.isActive])
   return state
+}
+
+function NextClass({ batch }) {
+  const today = classDate()
+  const next = nextClassDate(batch, today)
+  if (!next) return null
+  const details = scheduledClasses(batch, next.slice(0, 7)).find(item => item.date === next)
+  return (
+    <section className="today-card" aria-label="Next class">
+      <KhatamPattern opacity={0.3} />
+      <div>
+        <h2>{next === today ? 'Class today' : `Next class: ${longDate.format(new Date(next + 'T00:00:00Z'))}`}</h2>
+        <p>{[details?.time, details?.venue].filter(Boolean).join(', ') || `${batch.name} batch, in person`}</p>
+      </div>
+      <Link className="btn btn-primary" to="/student/academic-calendar"><CalendarDays size={17} aria-hidden="true" /> Class calendar</Link>
+    </section>
+  )
 }
 
 export function StudentOverview() {
@@ -31,17 +56,38 @@ export function StudentOverview() {
   const state = useStudentOverview(account)
   const latestTuition = state.tuition[0]
   const overall = state.attendance.summary.overall
-  const cards = [
-    { path: 'attendance', title: 'Attendance', icon: CalendarDays, value: overall.rate === null ? 'No records' : percent.format(overall.rate), detail: `${overall.attended} of ${overall.marked} marked classes attended` },
-    { path: 'homework', title: 'Homework', icon: BookOpen, value: state.homework.length, detail: account.isActive ? `${state.homework.length} assignment${state.homework.length === 1 ? '' : 's'} available` : 'Unavailable for former students' },
-    { path: 'tuition', title: 'Tuition', icon: CreditCard, value: latestTuition?.status ?? 'Unrecorded', detail: latestTuition ? formatBillingMonth(latestTuition.month) : 'No billing records' },
-  ]
+  const firstName = account.name.split(' ')[0]
+
   return <>
-    <header className="student-welcome surface-banner"><p className="eyebrow">Student dashboard</p><h1>Welcome, {account.name.split(' ')[0]}</h1><p>{account.name} <span aria-hidden="true">·</span> Student ID {account.id}</p></header>
-    {account.isActive === false && <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">Your enrollment is inactive. This portal is a read-only archive of your recorded attendance and tuition history.</p>}
-    {state.error && <p role="alert" className="student-empty">{state.error}</p>}
-    {state.loading ? <p>Loading overview…</p> : <><div className="summary-grid student-summary">{cards.map(({ path, title, icon: Icon, value, detail }) => <Link className="summary-card interactive-card" to={`/student/${path}`} key={path}><span className="card-icon"><Icon size={21} /></span><ArrowRight className="card-arrow" size={18} /><h2>{title}</h2><strong>{value}</strong><p>{detail}</p></Link>)}</div>
-    <section className="student-panel"><div className="student-panel-heading"><h2>Recent homework</h2><Link to="/student/homework">View homework <ArrowRight size={16} /></Link></div>{state.homework.length ? <ul className="assignment-list">{state.homework.slice(0, 3).map(item => <li key={item.id}><strong className="break-all">{item.title}</strong>{item.deadline && <time dateTime={item.deadline}>{formatDate(item.deadline)}</time>}</li>)}</ul> : <p className="student-empty">{account.isActive ? 'No assignments yet.' : 'Homework is unavailable for former students.'}</p>}</section></>}
+    <PageHeader title={`Assalamu alaikum, ${firstName}`}
+      description={account.batch ? `${account.batch} batch, student ID ${account.id}` : `Student ID ${account.id}`} />
+    {account.isActive === false && <Notice tone="warn" className="mb-4">You're no longer enrolled. You can still see your past attendance and tuition.</Notice>}
+    {state.error && <Notice tone="error" className="mb-4">{state.error}</Notice>}
+    {state.loading ? <LoadingState>Loading your overview…</LoadingState> : <>
+      {state.batch && <NextClass batch={state.batch} />}
+      <dl className="stat-strip mt-4">
+        <div className="stat"><dt>Attendance</dt><dd>{overall.rate === null ? '—' : percent.format(overall.rate)}</dd></div>
+        <div className="stat"><dt>Classes attended</dt><dd>{overall.attended} <small className="text-sm font-normal text-muted">of {overall.marked}</small></dd></div>
+        <div className="stat"><dt>Homework</dt><dd>{state.homework.length}</dd></div>
+        <div className="stat"><dt>{latestTuition ? formatBillingMonth(latestTuition.month) : 'Tuition'}</dt><dd className="!text-base !font-medium">{latestTuition ? <StatusPill status={latestTuition.status} /> : 'No records'}</dd></div>
+      </dl>
+      <div className="dash-grid">
+        <section className="panel" aria-labelledby="recent-homework">
+          <div className="panel-head"><h2 id="recent-homework">Homework</h2><Link to="/student/homework" className="btn btn-ghost btn-sm">See all</Link></div>
+          {state.homework.length ? <ul className="progress-list">{state.homework.slice(0, 4).map(item => (
+            <li key={item.id}><div className="progress-row"><span className="font-medium break-words">{item.title}</span>{item.deadline && <span>Due <time dateTime={item.deadline}>{formatDate(item.deadline)}</time></span>}</div></li>
+          ))}</ul> : <EmptyState>{account.isActive ? 'No homework right now.' : 'Homework is only for enrolled students.'}</EmptyState>}
+        </section>
+        <section className="panel" aria-labelledby="latest-tuition">
+          <div className="panel-head"><h2 id="latest-tuition">Tuition</h2><Link to="/student/tuition" className="btn btn-ghost btn-sm">History</Link></div>
+          {latestTuition ? <div className="panel-body">
+            <p className="text-sm text-muted">{formatBillingMonth(latestTuition.month)}</p>
+            <p className="money">{latestTuition.due === null ? 'Fee not set' : formatTuitionAmount(latestTuition.due)}</p>
+            <p className="mt-2"><StatusPill status={latestTuition.status} /></p>
+          </div> : <EmptyState>No tuition has been recorded yet.</EmptyState>}
+        </section>
+      </div>
+    </>}
   </>
 }
 
@@ -50,17 +96,35 @@ export function StudentAttendance() {
   const [state, setState] = useState({ ...emptyAttendance, loading: true, error: '' })
   useEffect(() => {
     let active = true
-    listStudentAttendance(account.studentUuid).then(result => { if (active) setState({ ...result, loading: false, error: '' }) }).catch(() => { if (active) setState({ ...emptyAttendance, loading: false, error: 'Attendance could not be loaded.' }) })
+    listStudentAttendance(account.studentUuid).then(result => { if (active) setState({ ...result, loading: false, error: '' }) }).catch(() => { if (active) setState({ ...emptyAttendance, loading: false, error: 'Attendance could not be loaded. Refresh the page to try again.' }) })
     return () => { active = false }
   }, [account.studentUuid])
-  const sessionsByDate = state.history.reduce((map, session) => map.set(session.date, [...(map.get(session.date) ?? []), session]), new Map())
-  const summaries = [['Physical', state.summary.physical], ['Online', state.summary.online], ['Overall', state.summary.overall]]
+  const summaries = [['In person', state.summary.physical], ['Online', state.summary.online], ['Overall', state.summary.overall]]
   return <>
-    <p className="eyebrow">Student dashboard</p><h1>Class attendance</h1>
-    {account.isActive === false && <p className="rounded-lg bg-amber-50 p-3 text-amber-950">Showing recorded attendance only. This archive is read-only.</p>}
-    {state.error && <p role="alert" className="student-empty">{state.error}</p>}
-    {state.loading ? <p>Loading attendance…</p> : <><section className="student-panel"><div className="grid gap-3 sm:grid-cols-3">{summaries.map(([label, summary]) => <div key={label} className="rounded-xl bg-blue-50 p-4"><h2 className="text-base">{label}</h2><strong className="text-2xl">{summary.rate === null ? 'No records' : percent.format(summary.rate)}</strong><p>{summary.attended} of {summary.marked} marked</p></div>)}</div></section>
-    <section className="student-panel daily-attendance"><div className="student-panel-heading"><h2>Class Attendance Record</h2></div><div className="attendance-table" role="region" tabIndex={0}><table><thead><tr>{['Date', 'Total', ...markOptions].map(label => <th key={label}>{label}</th>)}</tr></thead><tbody>{Array.from(sessionsByDate, ([date, sessions]) => { const counts = markOptions.map(status => sessions.filter(session => session.status === status).length); const marked = counts.reduce((sum, count) => sum + count, 0); const attended = counts[0] + counts[1]; return <tr key={date}><th scope="row"><time dateTime={date}>{formatDate(date)}</time><div className="daily-rate"><span>{marked ? percent.format(attended / marked) : '—'}</span></div></th><td>{sessions.length}</td>{counts.map((count, index) => <td key={markOptions[index]}>{count}</td>)}</tr> })}</tbody></table></div><p className="daily-attendance-note">Attendance rate counts Present and Late out of all marked sessions, including Sick and Absent.</p></section>
-    <details className="student-panel class-history"><summary>Class history</summary>{state.history.length ? <div className="attendance-table" role="region" tabIndex={0}><table><thead><tr><th>Date</th><th>Class type</th><th>Status</th></tr></thead><tbody>{state.history.map(session => <tr key={session.id}><td><time dateTime={session.date}>{formatDate(session.date)}</time></td><td>{session.type === 'Physical' ? 'In person' : session.type}</td><td><span className="attendance-status" data-status={session.status}>{session.status}</span></td></tr>)}</tbody></table></div> : <p className="student-empty">No class sessions yet.</p>}</details></>}
+    <PageHeader title="Attendance" description="Present and Late count as attended. Sick and Absent don't." />
+    {account.isActive === false && <Notice tone="warn" className="mb-4">You're no longer enrolled. This is a read-only record.</Notice>}
+    {state.error && <Notice tone="error" className="mb-4">{state.error}</Notice>}
+    {state.loading ? <LoadingState>Loading attendance…</LoadingState> : <>
+      <dl className="stat-strip">
+        {summaries.map(([label, summary]) => (
+          <div key={label} className="stat"><dt>{label}</dt><dd>{summary.rate === null ? '—' : percent.format(summary.rate)}</dd><span className="text-sm text-muted">{summary.attended} of {summary.marked} classes</span></div>
+        ))}
+      </dl>
+      <section className="panel mt-4" aria-labelledby="class-history">
+        <div className="panel-head"><h2 id="class-history">Every class</h2></div>
+        {state.history.length ? <div className="table-scroll" role="region" tabIndex={0} aria-labelledby="class-history">
+          <table className="data-table">
+            <thead><tr><th scope="col">Date</th><th scope="col">Class</th><th scope="col">Your mark</th></tr></thead>
+            <tbody>{state.history.map(session => (
+              <tr key={session.id}>
+                <th scope="row"><time dateTime={session.date}>{formatDate(session.date)}</time></th>
+                <td>{session.type === 'Physical' ? 'In person' : session.type}{session.sessionNo > 1 ? `, session ${session.sessionNo}` : ''}</td>
+                <td><StatusPill status={session.status}>{session.status === 'Unrecorded' ? 'Not marked' : session.status}</StatusPill></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div> : <EmptyState>No classes recorded yet.</EmptyState>}
+      </section>
+    </>}
   </>
 }

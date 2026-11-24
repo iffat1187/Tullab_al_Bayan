@@ -1,67 +1,42 @@
-.staff-roster {
-  margin-top: 1.25rem;
-  overflow: hidden;
-  border: 1px solid #334b6d;
-  border-radius: .85rem;
-  color: #f1f6ff;
-  background: #14243e;
-}
+.attendance-toolbar { display: grid; gap: 1rem; align-items: end; }
+@media (min-width: 720px) { .attendance-toolbar { grid-template-columns: 12rem minmax(0, 1fr) auto; } }
 
-.staff-roster thead th { background: #101e36; color: #cbdcf5; }
-.staff-roster tbody tr { background: #192d49; border-color: #384e6c; }
-.staff-roster tbody tr:nth-child(even) { background: #233952; }
-.staff-roster tbody th { background: transparent; font-weight: 700; }
-.staff-roster th, .staff-roster td { padding: .65rem .85rem; vertical-align: middle; }
-.staff-student-id { color: #cbdcf5; font-variant-numeric: tabular-nums; }
-.staff-status {
-  display: inline-block;
-  border-radius: 999px;
-  padding: .2rem .65rem;
-  background: #3a485c;
-  color: #f1f5f9;
-  font-size: .8rem;
-  font-weight: 700;
+.session-tabs { display: flex; flex-wrap: wrap; gap: .4rem; }
+.session-tab {
+  min-height: 2.5rem; padding: .35rem .85rem; border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--surface); font-size: .9rem; transition: border-color var(--ease), background-color var(--ease);
 }
-.staff-status[data-mark="Present"] { background: #15543e; color: #c3fbe1; }
-.staff-status[data-mark="Absent"] { background: #6d293c; color: #ffe0e8; }
-.staff-status[data-mark="Late"] { background: #61440e; color: #ffe8a3; }
-.staff-status[data-mark="Sick"] { background: #443864; color: #f0e5ff; }
-.staff-mark-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; max-width: 15rem; }
-.staff-mark-buttons button {
-  min-height: 2.35rem;
-  cursor: pointer;
-  border: 1px solid #6d86a9;
-  border-radius: .5rem;
-  padding: .3rem .55rem;
-  font-size: .85rem;
-  font-weight: 700;
+.session-tab:hover { border-color: var(--teal); }
+.session-tab[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-wash); color: var(--teal); font-weight: 500; }
+.session-tab small { margin-left: .35rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.new-session { display: flex; flex-wrap: wrap; gap: .5rem; }
+.new-session .field { width: auto; }
+
+.mark-group { display: inline-grid; grid-template-columns: repeat(4, minmax(4.25rem, 1fr)); border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.mark-group button {
+  min-height: 2.4rem; padding: .3rem .5rem; border-left: 1px solid var(--line-strong);
+  font-size: .875rem; color: var(--ink); transition: background-color var(--ease), color var(--ease);
 }
-.staff-mark-buttons button:hover:not(:disabled) { border-color: #d2e5ff; }
-.staff-mark-buttons button:focus-visible { outline-color: #d2e5ff; }
-.staff-mark-buttons button:disabled { cursor: not-allowed; opacity: .55; }
-.staff-mark-buttons button[aria-pressed="true"][data-mark="Present"] { background: #176047; border-color: #7ce0b5; }
-.staff-mark-buttons button[aria-pressed="true"][data-mark="Absent"] { background: #8a3048; border-color: #ff9eb3; }
-.staff-mark-buttons button[aria-pressed="true"][data-mark="Late"] { background: #705017; border-color: #f7cd65; }
-.staff-mark-buttons button[aria-pressed="true"][data-mark="Sick"] { background: #524175; border-color: #d4bafa; }
-@media (min-width: 1024px) {
-  .staff-mark-buttons { grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 23rem; }
-}
-.staff-mark-error { margin-top: .45rem; color: #ffd1d9; font-size: .8rem; }
+.mark-group button:first-child { border-left: 0; }
+.mark-group button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--surface-sunk); }
+.mark-group button:disabled { opacity: .45; }
+.mark-group button:focus-visible { outline-offset: -3px; }
+.mark-group button[aria-pressed="true"] { color: #fff; font-weight: 500; }
+.mark-group button[aria-pressed="true"][data-mark="Present"] { background: var(--ok); }
+.mark-group button[aria-pressed="true"][data-mark="Late"] { background: #9a6700; }
+.mark-group button[aria-pressed="true"][data-mark="Sick"] { background: var(--violet); }
+.mark-group button[aria-pressed="true"][data-mark="Absent"] { background: var(--danger); }
+.mark-group[aria-busy="true"] { opacity: .65; }
+
+.roster-row-unmarked th::before { content: ''; display: inline-block; width: .45rem; height: .45rem; margin-right: .5rem; border-radius: 50%; background: var(--gilt); vertical-align: middle; }
 
 @media (max-width: 720px) {
-  .staff-roster table, .staff-roster tbody { display: block; }
-  .staff-roster thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .staff-roster tbody tr {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: .2rem .65rem;
-    padding: .7rem .8rem;
-  }
-  .staff-roster tbody th, .staff-roster tbody td { padding: 0; }
-  .staff-student-name { grid-area: 1 / 1; }
-  .staff-student-id { grid-area: 2 / 1; }
-  .staff-student-status { grid-area: 1 / 2 / 3; align-self: center; }
-  .staff-mark-cell { grid-column: 1 / -1; margin-top: .3rem; }
-  .staff-mark-buttons { max-width: none; }
-  .staff-mark-buttons button { min-height: 44px; }
+  .attendance-roster thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .attendance-roster, .attendance-roster tbody, .attendance-roster tr, .attendance-roster th, .attendance-roster td { display: block; }
+  .attendance-roster tbody tr { padding: .85rem 1rem; }
+  .attendance-roster tbody th, .attendance-roster tbody td { padding: 0; }
+  .attendance-roster tbody td { margin-top: .6rem; }
+  .mark-group { display: grid; width: 100%; }
+  .mark-group button { min-height: 44px; }
 }

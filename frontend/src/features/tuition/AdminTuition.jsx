@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AdminBatchPage, buttonClass, fieldClass } from '../admin/AdminBatchPage.jsx'
-import { formatTuitionAmount } from './tuitionFormat.js'
+import { AdminBatchPage, fieldClass } from '../admin/AdminBatchPage.jsx'
+import { formatBillingMonth, formatTuitionAmount } from './tuitionFormat.js'
+import { EmptyState, LoadingState, Notice, StatusPill } from '../../components/ui.jsx'
 import { TuitionHistory } from './StudentTuition.jsx'
 import { listRoster } from '../roster/rosterRepository.js'
 import {
@@ -85,9 +86,9 @@ function TuitionRow({ student, record, mode, onSaved }) {
 
   return (
     <tr>
-      <th scope="row" className="bg-transparent">
-        <strong className="block">{student.name}</strong>
-        <span className="text-xs font-normal text-slate-600">{student.id}{student.note ? ' · ' + student.note : ''}</span>
+      <th scope="row">
+        {student.name}
+        <span className="cell-sub">{student.id}{student.note ? ', ' + student.note.toLowerCase() : ''}</span>
       </th>
       <td>
         {mode === 'payment' ? (
@@ -95,7 +96,7 @@ function TuitionRow({ student, record, mode, onSaved }) {
         ) : (
           <input
             aria-label={`Base fee for ${student.name}`}
-            className={fieldClass + ' min-w-32'}
+            className={fieldClass + ' min-w-28'}
             type="number"
             min="0"
             step="0.01"
@@ -134,16 +135,14 @@ function TuitionRow({ student, record, mode, onSaved }) {
             {paymentStatuses.map(value => <option key={value}>{value}</option>)}
           </select>
         ) : (
-          <span className="inline-block rounded-md bg-blue-50 px-2 py-1 font-semibold text-blue-900">
-            {rowStatus}
-          </span>
+          <StatusPill status={rowStatus} />
         )}
       </td>
       <td>
-        <button type="button" className={buttonClass} disabled={!record || saving} onClick={save}>
+        <button type="button" className="btn btn-secondary btn-sm" disabled={!record || saving} onClick={save}>
           {saving ? 'Saving…' : 'Save'}
         </button>
-        {error && <p role="alert" className="mt-1 max-w-xs text-xs text-red-800">{error}</p>}
+        {error && <p role="alert" className="field-error max-w-xs">{error}</p>}
       </td>
     </tr>
   )
@@ -242,15 +241,15 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
 
   if (mode === 'ledger') {
     return (
-      <section className="mt-5 rounded-2xl border border-surface-border bg-surface p-5">
-        <label className="block max-w-lg font-semibold">
+      <section className="panel panel-body">
+        <label className="label max-w-lg">
           Student
-          <select className={fieldClass + ' mt-1'} value={selectedStudentUuid} onChange={event => setSelectedStudentUuid(event.target.value)}>
+          <select className={fieldClass} value={selectedStudentUuid} onChange={event => setSelectedStudentUuid(event.target.value)}>
             <option value="">Select a student</option>
-            {students.map(student => <option key={student.uuid} value={student.uuid}>{student.name} · {student.id}</option>)}
+            {students.map(student => <option key={student.uuid} value={student.uuid}>{student.name} ({student.id})</option>)}
             {formerStudents.length > 0 && (
               <optgroup label="Former students">
-                {formerStudents.map(student => <option key={student.uuid} value={student.uuid}>{student.name} · {student.id}</option>)}
+                {formerStudents.map(student => <option key={student.uuid} value={student.uuid}>{student.name} ({student.id})</option>)}
               </optgroup>
             )}
           </select>
@@ -264,12 +263,12 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
 
   return (
     <>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <label className="block min-w-0 text-sm font-semibold">
+      <section className="panel panel-body grid gap-4 sm:grid-cols-2 lg:grid-cols-[12rem_minmax(0,1fr)_auto] lg:items-end" aria-label="Tuition filters">
+        <label className="label">
           Billing month
           <input
             type="month"
-            className={fieldClass + ' mt-1'}
+            className={fieldClass}
             value={month}
             required
             onChange={event => {
@@ -278,112 +277,92 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
             }}
           />
         </label>
-        <label className="block text-sm font-semibold">
-          Filter by payment status
-          <select className={fieldClass + ' mt-1'} value={filter} onChange={event => selectFilter(event.target.value)}>
-            {['All statuses', ...filterStatuses].map(status => <option key={status}>{status}</option>)}
-          </select>
-        </label>
-        <label className="block min-w-0 text-sm font-semibold">
-          Search roster
+        <label className="label">
+          Search
           <input
             type="search"
-            className={fieldClass + ' mt-1'}
+            className={fieldClass}
             placeholder="Name or student ID"
             value={search}
             onChange={event => setSearch(event.target.value)}
           />
         </label>
-      </div>
-
-      {mode === 'management' && (
-        <p className="mt-4 text-sm text-slate-600">Payment status tracks payments received outside the portal.</p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" className={buttonClass} disabled={generating} onClick={generate}>
-          {generating ? 'Generating…' : 'Generate Monthly Tuition'}
+        <button type="button" className={'btn ' + (ungeneratedMonth ? 'btn-primary' : 'btn-secondary')} disabled={generating} onClick={generate}>
+          {generating ? 'Generating…' : state.records.length ? 'Add missing students' : 'Generate tuition for this month'}
         </button>
-        {ungeneratedMonth && (
-          <p role="status" className="text-sm font-medium text-amber-900">
-            Month not generated yet — generate monthly tuition to enable edits.
-          </p>
-        )}
-      </div>
-
-      <section aria-label="Batch payment summary" className="mt-4">
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {[...paymentStatuses, coveredStatus, feeNotSetStatus].map(status => (
-            <button
-              key={status}
-              type="button"
-              aria-pressed={filter === status}
-              className="interactive-card rounded-xl border border-surface-border bg-field px-3 py-2 text-left aria-pressed:border-sky-700 aria-pressed:bg-sky-100 aria-pressed:ring-1 aria-pressed:ring-sky-700"
-              onClick={() => selectFilter(status)}
-            >
-              <span className="block text-sm font-semibold text-slate-700">{status}</span>
-              <span className="block text-xl font-bold tabular-nums">{counts[status]}</span>
-            </button>
-          ))}
-        </div>
-        {[noAmountDueStatus, notGeneratedStatus].filter(status => counts[status] > 0).map(status => (
-          <p key={status} className="mt-2 text-sm text-slate-600">{status} · {counts[status]}</p>
-        ))}
-        {filter !== 'All statuses' && (
-          <button
-            type="button"
-            className="mt-3 rounded-lg border border-field-border px-3 py-2 text-sm font-semibold text-blue-900 hover:bg-sky-100"
-            onClick={() => selectFilter('All statuses')}
-          >
-            Clear filter
-          </button>
-        )}
       </section>
 
-      {notice && (
-        <p className={'mt-4 text-sm ' + (notice.error ? 'text-red-800' : 'text-blue-900')} role={notice.error ? 'alert' : 'status'}>
-          {notice.message}
-        </p>
+      {ungeneratedMonth && (
+        <Notice tone="warn" className="mt-4">
+          Tuition for {formatBillingMonth(month)} hasn’t been generated for the {batch} batch. Generate it to start recording fees and payments.
+        </Notice>
       )}
-      {state.error && <p role="alert" className="mt-3 text-red-800">{state.error}</p>}
+      {notice && <Notice tone={notice.error ? 'error' : 'success'} className="mt-4">{notice.message}</Notice>}
+      {state.error && <Notice tone="error" className="mt-4">{state.error}</Notice>}
 
-      {state.loading ? (
-        <p className="mt-4">Loading tuition…</p>
-      ) : !roster.length ? (
-        <p className="mt-5 text-slate-600">No students in this batch yet.</p>
-      ) : !rows.length ? (
-        <p className="mt-5 text-slate-600" role="status">
-          {counts[filter] === 0 ? emptyByStatus[filter] : 'No students match your search and payment filter.'}
-        </p>
-      ) : (
-        <div className="mt-5 overflow-x-auto" role="region" tabIndex={0} aria-label="Tuition roster">
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                {['Student', 'Base fee', 'Scholarship', 'Amount due', 'Payment status', 'Action'].map(label => (
-                  <th key={label} scope="col">{label}</th>
+      <section aria-label="Filter by status" className="stat-strip mt-4">
+        {[...paymentStatuses, coveredStatus, feeNotSetStatus].map(status => (
+          <button
+            key={status}
+            type="button"
+            aria-pressed={filter === status}
+            className="stat"
+            onClick={() => selectFilter(filter === status ? 'All statuses' : status)}
+          >
+            <span className="stat-label">{status}</span>
+            <span className="stat-value">{counts[status]}</span>
+          </button>
+        ))}
+      </section>
+      <p className="mt-2 text-sm text-muted">
+        {filter === 'All statuses' ? 'Tap a number to show only those students.' : <>Showing {filter.toLowerCase()} only. <button type="button" className="text-teal underline" onClick={() => selectFilter('All statuses')}>Show everyone</button></>}
+        {[noAmountDueStatus, notGeneratedStatus].filter(status => counts[status] > 0).map(status => ` ${status}: ${counts[status]}.`)}
+      </p>
+
+      <section className="panel mt-4" aria-label="Tuition roster">
+        {state.loading ? (
+          <LoadingState>Loading tuition…</LoadingState>
+        ) : !roster.length ? (
+          <EmptyState title="No students in this batch">Add students from the Students page.</EmptyState>
+        ) : !rows.length ? (
+          <EmptyState>{counts[filter] === 0 ? emptyByStatus[filter] : 'No students match your search.'}</EmptyState>
+        ) : (
+          <div className="table-scroll" role="region" tabIndex={0} aria-label="Tuition roster">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  {['Student', 'Base fee', 'Scholarship', 'Amount due', 'Status', ''].map(label => (
+                    <th key={label || 'action'} scope="col">{label || <span className="sr-only">Action</span>}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ student, record }) => (
+                  <TuitionRow
+                    key={`${month}:${student.uuid}`}
+                    student={student}
+                    record={record}
+                    mode={mode}
+                    onSaved={studentName => load({ message: `Tuition saved for ${studentName}.`, error: false })}
+                  />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ student, record }) => (
-                <TuitionRow
-                  key={`${month}:${student.uuid}`}
-                  student={student}
-                  record={record}
-                  mode={mode}
-                  onSaved={studentName => load({ message: `Tuition updated for ${studentName}.`, error: false })}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </>
   )
 }
 
-export default function AdminTuition({ title = 'Tuition Management', mode = 'management' }) {
+const descriptions = {
+  management: 'Generate each month’s tuition, then adjust fees, scholarships and payments for each student.',
+  payment: 'Mark students as paid when they pay at the office.',
+  scholarship: 'Set each student’s fee and scholarship for the month.',
+  ledger: 'See the full tuition history for any student, including former students.',
+}
+
+export default function AdminTuition({ title = 'Monthly tuition', mode = 'management' }) {
   const [params, setParams] = useSearchParams()
   const requested = params.get('month')
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(requested ?? '') ? requested : currentMonth()
@@ -398,7 +377,7 @@ export default function AdminTuition({ title = 'Tuition Management', mode = 'man
   }
 
   return (
-    <AdminBatchPage title={title} workspaceLabel="Admin dashboard">
+    <AdminBatchPage title={title} description={descriptions[mode]}>
       {({ batchId, batch, students }) => (
         <BatchTuition
           key={`${batchId}-${mode}`}

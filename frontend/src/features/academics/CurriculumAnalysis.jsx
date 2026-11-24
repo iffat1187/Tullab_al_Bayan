@@ -1,21 +1,28 @@
 import React from 'react'
+import { BookOpenText, Ear, MessageCircle, PenLine } from 'lucide-react'
+import { PageHeader } from '../../components/ui.jsx'
 import { curriculumSkills } from './curriculumSkills.js'
+
+const icons = { speaking: MessageCircle, writing: PenLine, listening: Ear, reading: BookOpenText }
 
 export default function CurriculumAnalysis() {
   return (
-    <div lang="en" dir="ltr" className="text-left leading-relaxed">
-      <header className="surface-banner rounded-2xl p-5 sm:p-8">
-        <h1>Curriculum Analysis</h1>
-        <p className="mt-3 text-lg font-semibold text-blue-950">Four skills we develop in the Arabic course</p>
-      </header>
-      <ul aria-label="Arabic course skills" className="mt-5 grid gap-4 min-[721px]:grid-cols-2">
-        {curriculumSkills.map(skill => (
-          <li key={skill.id} className="min-w-0 rounded-xl border border-surface-border bg-surface p-5">
-            <h2 className="break-words text-xl font-bold text-blue-950">{skill.title}</h2>
-            <p className="mt-2 whitespace-pre-wrap break-words text-slate-700">{skill.description}</p>
-          </li>
-        ))}
+    <>
+      <PageHeader title="Skills we teach" description="Every lesson works on these four skills together." />
+      <ul aria-label="Course skills" className="grid gap-3 md:grid-cols-2">
+        {curriculumSkills.map(skill => {
+          const Icon = icons[skill.id] ?? BookOpenText
+          return (
+            <li key={skill.id} className="panel panel-body flex gap-4">
+              <span className="grid size-11 flex-none place-items-center rounded-lg bg-teal-wash text-teal"><Icon size={21} aria-hidden="true" /></span>
+              <div className="min-w-0">
+                <h2 className="break-words">{skill.title}</h2>
+                <p className="mt-1 whitespace-pre-wrap break-words text-muted">{skill.description}</p>
+              </div>
+            </li>
+          )
+        })}
       </ul>
-    </div>
+    </>
   )
 }

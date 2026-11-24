@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { formatDate } from '../../lib/formatDate.js'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { AdminBatchPage, buttonClass, fieldClass } from '../admin/AdminBatchPage.jsx'
+import { EmptyState, LoadingState, Notice, PageHeader, StatusPill } from '../../components/ui.jsx'
 import { deleteHomework, listHomework, saveHomework } from './homeworkRepository.js'
 
 const dhakaDateFormatter = new Intl.DateTimeFormat('sv-SE', {
@@ -18,32 +20,29 @@ function formatPublishedDate(isoTimestamp) {
   return formatDate(dhakaDateFormatter.format(new Date(isoTimestamp)))
 }
 
-function HomeworkList({ assignments, actions }) {
+function HomeworkList({ assignments, actions, emptyText = 'No homework has been published for this batch yet.' }) {
   if (!assignments.length) {
-    return <p className="page-description">No homework has been published for this batch yet.</p>
+    return <div className="panel"><EmptyState>{emptyText}</EmptyState></div>
   }
 
   const today = todayInDhaka()
 
   return (
-    <ol className="mt-4 grid gap-4">
+    <ol className="grid gap-3">
       {assignments.map(item => {
         const isOverdue = Boolean(item.deadline && item.deadline < today)
         return (
-          <li key={item.id} className="rounded-xl border border-surface-border bg-field p-4">
+          <li key={item.id} className="panel panel-body">
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <h3 className="text-lg font-bold text-blue-950 break-words">{item.title}</h3>
-              {isOverdue && (
-                <span className="inline-block rounded-md bg-red-100 px-2 py-0.5 text-xs font-bold text-red-900">
-                  Overdue
-                </span>
-              )}
+              <h3 className="text-lg break-words">{item.title}</h3>
+              {item.deadline && (isOverdue
+                ? <StatusPill status="Overdue">Was due {formatDate(item.deadline)}</StatusPill>
+                : <StatusPill tone="teal">Due {formatDate(item.deadline)}</StatusPill>)}
             </div>
-            <p className="mt-1 text-sm font-semibold text-slate-600">
+            <p className="mt-1 text-sm text-muted">
               Published <time dateTime={item.publishedAt}>{formatPublishedDate(item.publishedAt)}</time>
-              {item.deadline && <> · Due <time dateTime={item.deadline}>{formatDate(item.deadline)}</time></>}
             </p>
-            <p className="mt-2 whitespace-pre-wrap break-words text-slate-800">{item.instructions}</p>
+            <p className="mt-3 max-w-[70ch] whitespace-pre-wrap break-words">{item.instructions}</p>
             {actions?.(item)}
           </li>
         )
@@ -74,20 +73,17 @@ function DeleteHomeworkDialog({ assignment, busy, error, onCancel, onConfirm }) 
   return (
     <dialog ref={dialog} aria-labelledby="delete-homework-title" aria-describedby="delete-homework-description"
       onCancel={event => { event.preventDefault(); close() }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-surface-border bg-surface p-5 shadow-lg backdrop:bg-slate-950/60">
-      <h3 id="delete-homework-title" className="text-lg font-bold">Delete homework?</h3>
+      className="dialog max-w-md">
+      <h3 id="delete-homework-title" className="text-lg">Delete this homework?</h3>
       <p id="delete-homework-description" className="mt-2 break-words">
         “{assignment.title}” will be removed permanently from the batch’s homework page.
       </p>
-      {error && <p role="alert" className="mt-2 text-sm text-red-800">{error}</p>}
-      <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <button ref={cancelButton} type="button" disabled={busy} onClick={close}
-          className="rounded-lg border border-field-border px-3 py-2 disabled:opacity-50">
+      {error && <Notice tone="error" className="mt-3">{error}</Notice>}
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <button ref={cancelButton} type="button" disabled={busy} onClick={close} className="btn btn-secondary">
           Cancel
         </button>
-        <button type="button" disabled={busy}
-          className="rounded-lg bg-red-700 px-3 py-2 font-semibold text-white disabled:opacity-50"
-          onClick={onConfirm}>
+        <button type="button" disabled={busy} className="btn btn-danger" onClick={onConfirm}>
           {busy ? 'Deleting...' : 'Delete homework'}
         </button>
       </div>
@@ -203,37 +199,43 @@ function BatchHomework({ batch, batchId }) {
 
   return (
     <>
-      <button className={buttonClass + ' mt-4'} type="button" onClick={() => openForm()}>
-        New homework
-      </button>
+      {!form && (
+        <button className="btn btn-primary mb-4" type="button" onClick={() => openForm()}>
+          <Plus size={16} aria-hidden="true" /> New homework for {batch}
+        </button>
+      )}
 
       {form && (
-        <form onSubmit={publish} noValidate className="mt-4 rounded-xl border border-surface-border bg-field p-4">
-          <h3 className="font-bold">{form.id ? 'Edit homework' : 'New homework'} · {batch} Batch</h3>
+        <form onSubmit={publish} noValidate className="panel panel-body mb-4 grid gap-4">
+          <h2>{form.id ? 'Edit homework' : `New homework for the ${batch} batch`}</h2>
 
-          <label className="mt-3 block font-semibold" htmlFor="homework-title">Title</label>
-          <input id="homework-title" type="text" required className={fieldClass + ' mt-1'}
-            placeholder="e.g. Arabic vocabulary practice"
-            value={form.title}
-            onChange={event => setForm({ ...form, title: event.target.value })} />
+          <label className="label" htmlFor="homework-title">Title
+            <input id="homework-title" type="text" required className={fieldClass}
+              placeholder="For example: Lesson 4 vocabulary"
+              value={form.title}
+              onChange={event => setForm({ ...form, title: event.target.value })} />
+          </label>
 
-          <label className="mt-3 block font-semibold" htmlFor="homework-instructions">Instructions</label>
-          <textarea id="homework-instructions" rows={5} required className={fieldClass + ' mt-1'}
-            placeholder="Describe the assignment for this batch"
-            value={form.instructions}
-            onChange={event => setForm({ ...form, instructions: event.target.value })} />
+          <label className="label" htmlFor="homework-instructions">What students should do
+            <textarea id="homework-instructions" rows={5} required className={fieldClass}
+              placeholder="Pages, exercises and anything students should bring"
+              value={form.instructions}
+              onChange={event => setForm({ ...form, instructions: event.target.value })} />
+          </label>
 
-          <label className="mt-3 block font-semibold" htmlFor="homework-deadline">Deadline (optional)</label>
-          <input id="homework-deadline" type="date" className={fieldClass + ' mt-1 max-w-xs'}
-            value={form.deadline}
-            onChange={event => setForm({ ...form, deadline: event.target.value })} />
+          <label className="label max-w-xs" htmlFor="homework-deadline">Due date <span className="font-normal text-muted">(optional)</span>
+            <input id="homework-deadline" type="date" className={fieldClass}
+              value={form.deadline}
+              onChange={event => setForm({ ...form, deadline: event.target.value })} />
+          </label>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          {result?.error && <Notice tone="error">{result.message}</Notice>}
+
+          <div className="flex flex-wrap gap-2">
             <button type="submit" className={buttonClass} disabled={saving}>
-              {saving ? 'Saving...' : 'Save homework'}
+              {saving ? 'Saving…' : form.id ? 'Save changes' : 'Publish homework'}
             </button>
-            <button type="button" disabled={saving}
-              className="rounded-lg border border-field-border px-4 py-2 disabled:opacity-50"
+            <button type="button" disabled={saving} className="btn btn-secondary"
               onClick={() => { setForm(null); setResult(null) }}>
               Cancel
             </button>
@@ -241,32 +243,26 @@ function BatchHomework({ batch, batchId }) {
         </form>
       )}
 
-      {result && (
-        <p className={'mt-3 text-sm ' + (result.error ? 'text-red-800' : 'text-blue-900')}
-          role={result.error ? 'alert' : 'status'}>
-          {result.message}
-        </p>
+      {result && !(form && result.error) && (
+        <Notice tone={result.error ? 'error' : 'success'} className="mb-4">{result.message}</Notice>
       )}
 
       {loading ? (
-        <p role="status" className="mt-4 text-slate-600">Loading homework...</p>
+        <LoadingState>Loading homework…</LoadingState>
       ) : loadError ? (
-        <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-900">
-          <p>{loadError}</p>
-          <button type="button" className={buttonClass + ' mt-3'} onClick={reload}>Retry</button>
-        </div>
+        <Notice tone="error" action={<button type="button" className="btn btn-secondary btn-sm" onClick={reload}>Try again</button>}>{loadError}</Notice>
       ) : (
         <HomeworkList
           assignments={assignments}
+          emptyText={`Nothing published for the ${batch} batch yet.`}
           actions={item => (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" className="rounded-lg border border-field-border px-3 py-2"
-                onClick={() => openForm(item)}>
-                Edit
+            <div className="mt-4 flex flex-wrap gap-1 border-t border-surface-border pt-3">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => openForm(item)}>
+                <Pencil size={15} aria-hidden="true" /> Edit
               </button>
-              <button type="button" className="rounded-lg border border-field-border px-3 py-2 text-red-800"
+              <button type="button" className="btn btn-ghost btn-sm text-danger"
                 onClick={() => { setDeleteError(''); setDeleteTarget(item) }}>
-                Delete
+                <Trash2 size={15} aria-hidden="true" /> Delete
               </button>
             </div>
           )}
@@ -288,7 +284,7 @@ function BatchHomework({ batch, batchId }) {
 
 export function HomeworkManagement({ role }) {
   return (
-    <AdminBatchPage title="Homework Management" workspaceLabel={role === 'teacher' ? 'Teacher workspace' : 'Admin dashboard'}>
+    <AdminBatchPage title="Homework" description="Publish homework to a batch. Students in that batch see it right away.">
       {({ batch, batchId }) => <BatchHomework key={batchId} batch={batch} batchId={batchId} />}
     </AdminBatchPage>
   )
@@ -337,10 +333,8 @@ export function StudentHomework() {
   if (!account?.isActive) {
     return (
       <>
-        <h1>Homework</h1>
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950" role="status">
-          Your enrollment is currently inactive. Active batch homework is available only to enrolled students.
-        </p>
+        <PageHeader title="Homework" />
+        <Notice tone="warn">You're no longer enrolled, so there's no batch homework to show.</Notice>
       </>
     )
   }
@@ -348,27 +342,21 @@ export function StudentHomework() {
   if (!account.batchId) {
     return (
       <>
-        <h1>Homework</h1>
-        <p className="page-description">No active batch was found for your student account.</p>
+        <PageHeader title="Homework" />
+        <Notice tone="info">You haven't been placed in a batch yet. Ask the office to assign one.</Notice>
       </>
     )
   }
 
   return (
     <>
-      <h1>Homework</h1>
-      {account.batch && <p className="page-description">{account.batch} Batch</p>}
+      <PageHeader title="Homework" description={account.batch ? `Set by your teachers for the ${account.batch} batch.` : undefined} />
       {loading ? (
-        <p role="status" className="mt-4 text-slate-600">Loading homework...</p>
+        <LoadingState>Loading homework…</LoadingState>
       ) : error ? (
-        <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-900">
-          <p>{error}</p>
-          <button type="button" className={buttonClass + ' mt-3'} onClick={() => setReloadToken(v => v + 1)}>
-            Retry
-          </button>
-        </div>
+        <Notice tone="error" action={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setReloadToken(v => v + 1)}>Try again</button>}>{error}</Notice>
       ) : (
-        <HomeworkList assignments={assignments} />
+        <HomeworkList assignments={assignments} emptyText="No homework right now. Check back after your next class." />
       )}
     </>
   )

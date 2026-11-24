@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowUpRight, BookOpenCheck, CalendarDays, ClipboardCheck, CreditCard, Users } from 'lucide-react'
+import { BookOpenCheck, ChevronRight, ClipboardCheck, CreditCard, Tags, Users } from 'lucide-react'
 import './staffDashboard.css'
 import { Link, useOutletContext } from 'react-router-dom'
 import { formatDate } from '../../lib/formatDate.js'
+import { EmptyState, KhatamPattern, LoadingState, Notice, PageHeader } from '../../components/ui.jsx'
 import { academicCalendar, classDate } from '../academics/academicRepository.js'
 import { listHomework } from '../homework/homeworkRepository.js'
 import { listSessions, markOptions } from '../attendance/attendanceRepository.js'
@@ -10,47 +11,72 @@ import { listActiveRosterForRole, listBatches } from '../admin/batchRepository.j
 import { coveredStatus, listMonthlyTuition } from '../tuition/tuitionRepository.js'
 import { formatBillingMonth, formatTuitionAmount } from '../tuition/tuitionFormat.js'
 
-const shortcutGroups = {
+const shortcuts = {
   admin: [
-    ['students', 'Student Management'], ['attendance', 'Attendance'], ['tuition', 'Tuition Management'],
-    ['scholarship-management', 'Scholarship Management'], ['homework', 'Homework Management'],
+    ['students', 'Add or edit students', Users],
+    ['tuition', 'Generate this month’s tuition', CreditCard],
+    ['payment-records', 'Record a payment', CreditCard],
+    ['scholarship-management', 'Manage scholarships', Tags],
+    ['homework', 'Publish homework', BookOpenCheck],
   ],
-  teacher: [['attendance', 'Take attendance'], ['academic-calendar', 'Academic Calendar'], ['homework', 'Homework Management']],
+  teacher: [
+    ['attendance', 'Take attendance', ClipboardCheck],
+    ['homework', 'Publish homework', BookOpenCheck],
+    ['academic-calendar', 'See the class calendar', ClipboardCheck],
+  ],
 }
 
-function Summary({ title, period, to, icon: Icon, children }) {
+function TodayCard({ role, todaysClasses, upcoming }) {
+  const first = todaysClasses[0]
   return (
-    <Link className="dashboard-card interactive-card" to={to}>
-      <div className="dashboard-card-icons">
-        <span><Icon size={21} aria-hidden="true" /></span>
-        <ArrowUpRight size={18} aria-hidden="true" />
+    <section className="today-card" aria-label="Today's class">
+      <KhatamPattern opacity={0.3} />
+      <div>
+        {first ? <>
+          <h2>{todaysClasses.map(item => item.batch).join(' and ')} batch today</h2>
+          <p>{[first.time, first.venue].filter(Boolean).join(', ') || 'In-person class'}</p>
+        </> : <>
+          <h2>No class today</h2>
+          <p>{upcoming ? `Next class: ${upcoming.batch} batch on ${formatDate(upcoming.date)}` : 'No classes in the next two weeks.'}</p>
+        </>}
       </div>
-      <h2 className="mt-3 text-lg font-bold">{title}</h2>
-      <p className="mt-1 text-sm text-slate-600">{period}</p>
-      <div className="mt-4">{children}</div>
-    </Link>
+      {first && <Link className="btn btn-primary" to={`/${role}/attendance`}><ClipboardCheck size={17} aria-hidden="true" /> Take attendance</Link>}
+    </section>
   )
 }
 
-function AttendanceCompletion({ sessions, students, batchNames }) {
-  if (!sessions.length) return <p>No attendance sessions have been opened today.</p>
+function AttendanceProgress({ sessions, students, batchNames, role }) {
   return (
-    <ul className="divide-y divide-blue-100">
-      {sessions.map(session => {
-        const roster = students.filter(student => student.batchId === session.batchId)
-        const marked = roster.filter(student => markOptions.includes(session.marks[student.uuid])).length
-        return (
-          <li key={session.id} className="flex flex-wrap justify-between gap-2 py-2">
-            <span>{batchNames.get(session.batchId) ?? 'Unknown'} Batch · {session.type} · Session {session.sessionNo}</span>
-            <span className="font-semibold">{marked} / {roster.length} marked</span>
-          </li>
-        )
-      })}
-    </ul>
+    <section className="panel" aria-labelledby="progress-title">
+      <div className="panel-head">
+        <h2 id="progress-title">Today’s attendance</h2>
+        <Link to={`/${role}/attendance`} className="btn btn-ghost btn-sm">Open</Link>
+      </div>
+      {!sessions.length ? <EmptyState>No sessions started today.</EmptyState> : (
+        <ul className="progress-list">
+          {sessions.map(session => {
+            const roster = students.filter(student => student.batchId === session.batchId)
+            const marked = roster.filter(student => markOptions.includes(session.marks[student.uuid])).length
+            const percent = roster.length ? Math.round((marked / roster.length) * 100) : 0
+            return (
+              <li key={session.id}>
+                <div className="progress-row">
+                  <span>{batchNames.get(session.batchId) ?? 'Unknown'} batch, {session.type === 'Physical' ? 'in person' : 'online'}</span>
+                  <span>{marked} of {roster.length} marked</span>
+                </div>
+                <div className="progress-bar" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Marked">
+                  <span style={{ width: percent + '%' }} data-done={percent === 100} />
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
   )
 }
 
-function TuitionSummary({ month }) {
+function TuitionSummary({ month, onMonthChange }) {
   const [state, setState] = useState({ records: [], loading: true, error: '' })
 
   useEffect(() => {
@@ -64,83 +90,72 @@ function TuitionSummary({ month }) {
     return () => { active = false }
   }, [month])
 
-  if (!month) return null
-  if (state.loading) return <p className="text-sm">Loading tuition…</p>
-  if (state.error) return <p className="text-sm text-red-800">{state.error}</p>
-  if (!state.records.length) return <p className="text-sm">Tuition has not been generated for this month.</p>
-
   const unpaid = state.records.filter(record => record.status === 'Unpaid')
   const outstanding = unpaid.reduce((total, record) => total + (record.due ?? 0), 0)
-  return (
-    <div className="text-sm">
-      <p className="font-bold">{formatTuitionAmount(outstanding)} outstanding</p>
-      <p>{state.records.filter(record => record.status === 'Paid').length} paid · {unpaid.length} unpaid</p>
-      <p>{state.records.filter(record => record.status === coveredStatus).length} covered by scholarship</p>
-    </div>
-  )
-}
-
-function AdminSummary({ students, batches, sessions, today }) {
-  const [month, setMonth] = useState(today.slice(0, 7))
-  const marks = sessions.flatMap(session => Object.values(session.marks)).filter(mark => markOptions.includes(mark))
 
   return (
-    <div className="space-y-3">
-      <label className="dashboard-month">
-        <span>Billing month</span>
-        <input type="month" value={month} onChange={event => setMonth(event.target.value)} />
-      </label>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Summary title="Active students" period={'Across ' + batches.length + ' batches'} to="/admin/students" icon={Users}>
-          <p className="text-3xl font-bold">{students.length}</p>
-        </Summary>
-        <Summary title="Recorded attendance" period={formatDate(today)} to="/admin/attendance" icon={ClipboardCheck}>
-          <p className="font-bold">{marks.length} marks · {sessions.length} sessions</p>
-          <dl className="mt-2 grid grid-cols-2 gap-x-3 text-sm">
-            {markOptions.map(mark => <div key={mark}><dt>{mark}</dt><dd className="font-bold">{marks.filter(value => value === mark).length}</dd></div>)}
-          </dl>
-        </Summary>
-        <Summary title="Tuition summary" period={month ? formatBillingMonth(month) : 'Select a billing month'}
-          to={month ? '/admin/tuition?month=' + encodeURIComponent(month) : '/admin/tuition'} icon={CreditCard}>
-          <TuitionSummary month={month} />
-        </Summary>
+    <section className="panel" aria-labelledby="tuition-title">
+      <div className="panel-head">
+        <h2 id="tuition-title">Tuition</h2>
+        <input className="field w-auto" type="month" aria-label="Billing month" value={month} onChange={event => onMonthChange(event.target.value)} />
       </div>
-    </div>
+      <div className="panel-body">
+        {!month ? <p className="text-muted">Choose a billing month.</p>
+          : state.loading ? <LoadingState />
+            : state.error ? <Notice tone="error">{state.error}</Notice>
+              : !state.records.length ? (
+                <p className="text-muted">Tuition for {formatBillingMonth(month)} hasn’t been generated yet. <Link className="text-teal underline" to={'/admin/tuition?month=' + encodeURIComponent(month)}>Generate it</Link></p>
+              ) : <>
+                <p className="text-sm text-muted">Still to collect for {formatBillingMonth(month)}</p>
+                <p className="money">{formatTuitionAmount(outstanding)}</p>
+                <dl className="tuition-breakdown">
+                  <div><dt>Paid</dt><dd>{state.records.filter(record => record.status === 'Paid').length}</dd></div>
+                  <div><dt>Unpaid</dt><dd>{unpaid.length}</dd></div>
+                  <div><dt>Scholarship</dt><dd>{state.records.filter(record => record.status === coveredStatus).length}</dd></div>
+                </dl>
+                <Link className="btn btn-secondary btn-sm mt-4" to={'/admin/payment-records?month=' + encodeURIComponent(month)}>Record payments</Link>
+              </>}
+      </div>
+    </section>
   )
 }
 
-function TeacherSummary({ students, batches, sessions, today, homework }) {
-  const batchNames = new Map(batches.map(batch => [batch.id, batch.name]))
-  const calendar = academicCalendar(batches)
-  const classes = calendar.filter(item => item.date === today)
-  const upcoming = calendar.filter(item => item.date > today).slice(0, 3)
+function Shortcuts({ role }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <Summary title="Today's classes" period={formatDate(today)} to="/teacher/academic-calendar" icon={CalendarDays}>
-        {classes.length ? classes.map(item => (
-          <p key={item.batch} className="mb-2 font-semibold">{item.batch} Batch · {item.type}</p>
-        )) : <p>No classes scheduled today.</p>}
-        {upcoming.length > 0 && <>
-          <h3 className="mt-4 text-sm font-bold">Upcoming classes</h3>
-          <ul className="mt-1 space-y-1 text-sm">
-            {upcoming.map(item => <li key={item.date + item.batch}>{formatDate(item.date)} · {item.batch} Batch · {item.type}</li>)}
-          </ul>
-        </>}
-      </Summary>
-      <Summary title="Attendance progress" period={formatDate(today)} to="/teacher/attendance" icon={ClipboardCheck}>
-        <AttendanceCompletion sessions={sessions} students={students} batchNames={batchNames} />
-      </Summary>
-      <Summary title="Homework" period="Recently published by batch" to="/teacher/homework" icon={BookOpenCheck}>
-        {homework.length ? <ul className="space-y-2">
-          {homework.map(item => <li key={item.id}>{item.batchName ?? batchNames.get(item.batchId)} Batch · {item.title}</li>)}
-        </ul> : <p>No homework has been published yet.</p>}
-      </Summary>
-    </div>
+    <section className="panel" aria-labelledby="shortcuts-title">
+      <div className="panel-head"><h2 id="shortcuts-title">Common tasks</h2></div>
+      <ul className="link-list">
+        {shortcuts[role].map(([path, label, Icon]) => (
+          <li key={path}><Link to={`/${role}/${path}`}><span className="inline-flex items-center gap-3"><Icon size={17} aria-hidden="true" /> {label}</span><ChevronRight size={16} aria-hidden="true" /></Link></li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function RecentHomework({ homework, batchNames }) {
+  return (
+    <section className="panel" aria-labelledby="homework-title">
+      <div className="panel-head">
+        <h2 id="homework-title">Recent homework</h2>
+        <Link to="/teacher/homework" className="btn btn-ghost btn-sm">All homework</Link>
+      </div>
+      {homework.length ? (
+        <ul className="progress-list">
+          {homework.map(item => (
+            <li key={item.id}>
+              <div className="progress-row"><span className="font-medium">{item.title}</span><span>{item.batchName ?? batchNames.get(item.batchId)} batch</span></div>
+            </li>
+          ))}
+        </ul>
+      ) : <EmptyState>No homework published yet.</EmptyState>}
+    </section>
   )
 }
 
 function DashboardData({ role }) {
   const [today] = useState(classDate)
+  const [month, setMonth] = useState(() => classDate().slice(0, 7))
   const [state, setState] = useState({ loading: true, error: '', students: [], batches: [], sessions: [], homework: [] })
   const [reloadToken, setReloadToken] = useState(0)
 
@@ -156,46 +171,58 @@ function DashboardData({ role }) {
       ])
       const recentHomework = [...homework]
         .sort((first, second) => String(second.publishedAt).localeCompare(String(first.publishedAt)))
-        .slice(0, 3)
+        .slice(0, 4)
       return { students, batches, sessions, homework: recentHomework }
     }
     load().then(
       data => { if (active) setState({ ...data, loading: false, error: '' }) },
-      () => { if (active) setState(current => ({ ...current, loading: false, error: 'Dashboard records could not be loaded.' })) },
+      () => { if (active) setState(current => ({ ...current, loading: false, error: 'Dashboard could not be loaded.' })) },
     )
     return () => { active = false }
   }, [role, today, reloadToken])
 
-  if (state.loading) return <p role="status">Loading dashboard…</p>
+  if (state.loading) return <LoadingState>Loading today’s overview…</LoadingState>
   if (state.error) {
-    return (
-      <p className="text-red-800" role="alert">
-        {state.error} <button type="button" className="underline" onClick={() => setReloadToken(value => value + 1)}>Retry</button>
-      </p>
-    )
+    return <Notice tone="error" action={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setReloadToken(value => value + 1)}>Try again</button>}>{state.error}</Notice>
   }
-  const SummaryPage = role === 'admin' ? AdminSummary : TeacherSummary
-  return <SummaryPage {...state} today={today} />
+
+  const batchNames = new Map(state.batches.map(batch => [batch.id, batch.name]))
+  const calendar = academicCalendar(state.batches)
+  const todaysClasses = calendar.filter(item => item.date === today)
+  const upcoming = calendar.find(item => item.date > today)
+  const marks = state.sessions.flatMap(session => Object.values(session.marks)).filter(mark => markOptions.includes(mark))
+
+  return <>
+    <TodayCard role={role} todaysClasses={todaysClasses} upcoming={upcoming} />
+    {role === 'admin' && (
+      <dl className="stat-strip mt-4">
+        <div className="stat"><dt>Active students</dt><dd>{state.students.length}</dd></div>
+        <div className="stat"><dt>Batches</dt><dd>{state.batches.length}</dd></div>
+        <div className="stat"><dt>Sessions today</dt><dd>{state.sessions.length}</dd></div>
+        <div className="stat"><dt>Present or late today</dt><dd>{marks.filter(mark => mark === 'Present' || mark === 'Late').length}</dd></div>
+        <div className="stat"><dt>Absent today</dt><dd>{marks.filter(mark => mark === 'Absent').length}</dd></div>
+      </dl>
+    )}
+    <div className="dash-grid">
+      <div className="grid content-start gap-4">
+        <AttendanceProgress sessions={state.sessions} students={state.students} batchNames={batchNames} role={role} />
+        {role === 'teacher' && <RecentHomework homework={state.homework} batchNames={batchNames} />}
+      </div>
+      <div className="grid content-start gap-4">
+        {role === 'admin' && <TuitionSummary month={month} onMonthChange={setMonth} />}
+        <Shortcuts role={role} />
+      </div>
+    </div>
+  </>
 }
 
 export default function StaffDashboard() {
-  const { role } = useOutletContext()
+  const { role, account } = useOutletContext()
+  const firstName = account.name.split(' ')[0]
   return (
-    <div className="space-y-5">
-      <header className="surface-banner rounded-2xl p-5 sm:p-8">
-        <p className="text-sm font-semibold text-sky-900">Al Bayan Institute</p>
-        <h1>{role === 'admin' ? 'Admin Dashboard' : 'Teacher Dashboard'}</h1>
-      </header>
-      <nav aria-label="Dashboard shortcuts" className="flex flex-wrap gap-2">
-        {shortcutGroups[role].map(([path, label], index) => (
-          <Link key={path} to={'/' + role + '/' + path}
-            className={'interactive-action dashboard-shortcut ' +
-              (role === 'teacher' && index === 0 ? 'dashboard-shortcut-primary' : '')}>
-            {label}
-          </Link>
-        ))}
-      </nav>
+    <>
+      <PageHeader title={`Assalamu alaikum, ${firstName}`} description={formatDate(classDate())} />
       <DashboardData role={role} />
-    </div>
+    </>
   )
 }
