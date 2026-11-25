@@ -10,6 +10,7 @@ import StudentManagement from '../features/admin/StudentManagement.jsx'
 import TeacherManagement from '../features/admin/TeacherManagement.jsx'
 import AdminTuition from '../features/tuition/AdminTuition.jsx'
 import StudentTuition from '../features/tuition/StudentTuition.jsx'
+import OnlinePayment from '../features/tuition/OnlinePayment.jsx'
 import AcademicCalendar from '../features/academics/AcademicCalendar.jsx'
 import CurriculumDetails from '../features/academics/CurriculumDetails.jsx'
 import CurriculumAnalysis from '../features/academics/CurriculumAnalysis.jsx'
@@ -33,7 +34,7 @@ const institute = { title: 'Institute', pages: [
 // Older links stay reachable, but duplicate or unavailable pages are kept out of the sidebar.
 const studentAccounts = { title: 'Fees', pages: [
   { path: 'student-ledger', hiddenFromSidebar: true, title: 'Tuition history', icon: Receipt, page: <StudentTuition title="Tuition history" /> },
-  { path: 'online-payment', title: 'Online payment', icon: CreditCard, empty: 'Online payment is not available yet. Pay at the institute office.' },
+  { path: 'online-payment', title: 'Online Payment', icon: CreditCard, page: <OnlinePayment /> },
   { path: 'tuition-fee-waiver', hiddenFromSidebar: true, title: 'Scholarship', icon: Tags, page: <StudentTuition title="Scholarship" waiverOnly /> },
 ] }
 
