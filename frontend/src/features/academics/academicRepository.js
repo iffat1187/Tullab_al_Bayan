@@ -5,8 +5,7 @@ export function classDate() {
 }
 
 // Upcoming in-person classes for the next 14 days across the given batches (from listBatches()).
-export function academicCalendar(batches) {
-  const today = classDate()
+export function academicCalendar(batches, today = classDate()) {
   const month = today.slice(0, 7)
   const end = new Date(today + 'T00:00:00Z')
   end.setUTCDate(end.getUTCDate() + 14)
