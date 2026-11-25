@@ -1,0 +1,44 @@
+.attendance-toolbar { display: grid; gap: 1rem; align-items: end; }
+@media (min-width: 720px) { .attendance-toolbar { grid-template-columns: 12rem minmax(0, 1fr) auto; } }
+
+.session-tabs { display: flex; flex-wrap: wrap; gap: .4rem; }
+.session-tab {
+  min-height: 2.5rem; padding: .35rem .95rem; border: 1px solid var(--line-strong); border-radius: 999px;
+  background: var(--surface); font-size: .875rem; font-weight: 600; color: var(--muted); box-shadow: var(--shadow-sm);
+  transition: border-color var(--ease), background-color var(--ease), color var(--ease);
+}
+.session-tab:hover { border-color: #b8c7e3; color: var(--ink); }
+.session-tab[aria-pressed="true"] { border-color: #b7caf5; background: var(--brand-wash); color: var(--brand); }
+.session-tab small { margin-left: .4rem; color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
+
+.new-session { display: flex; flex-wrap: wrap; gap: .5rem; }
+.new-session .field { width: auto; }
+
+.mark-group { display: inline-grid; grid-template-columns: repeat(4, minmax(5rem, 1fr)); gap: .25rem; padding: .25rem; border-radius: .9rem; background: var(--surface-sunk); box-shadow: inset 0 0 0 1px var(--line); }
+.mark-group button {
+  min-height: 2.5rem; padding: .35rem .7rem; border-radius: .65rem;
+  font-size: .9rem; font-weight: 600; color: var(--muted);
+  transition: background-color var(--ease), color var(--ease), box-shadow var(--ease);
+}
+.mark-group button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.mark-group button:disabled { opacity: .45; }
+.mark-group button:focus-visible { outline-offset: -2px; }
+.mark-group button[aria-pressed="true"] { color: #fff; box-shadow: 0 4px 10px -4px var(--mark-shadow, #0003); }
+.mark-group button[aria-pressed="true"][data-mark="Present"] { background: linear-gradient(180deg, #1f9460, var(--ok)); --mark-shadow: #157a4c99; }
+.mark-group button[aria-pressed="true"][data-mark="Late"] { background: linear-gradient(180deg, #e0a52a, #c38610); --mark-shadow: #c3861099; }
+.mark-group button[aria-pressed="true"][data-mark="Sick"] { background: linear-gradient(180deg, #7a55cc, var(--violet)); --mark-shadow: #6440b899; }
+.mark-group button[aria-pressed="true"][data-mark="Absent"] { background: linear-gradient(180deg, #d6493e, var(--danger)); --mark-shadow: #c0362c99; }
+.mark-group button[aria-pressed="true"] { animation: mark-pop var(--spring); }
+@keyframes mark-pop { 0% { scale: .9; } 100% { scale: 1; } }
+
+.roster-row-unmarked .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--gold); }
+
+@media (max-width: 720px) {
+  .attendance-roster thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .attendance-roster, .attendance-roster tbody, .attendance-roster tr, .attendance-roster th, .attendance-roster td { display: block; }
+  .attendance-roster tbody tr { padding: .85rem 1rem; }
+  .attendance-roster tbody th, .attendance-roster tbody td { padding: 0; }
+  .attendance-roster tbody td { margin-top: .6rem; }
+  .mark-group { display: grid; width: 100%; }
+  .mark-group button { min-height: 44px; }
+}
