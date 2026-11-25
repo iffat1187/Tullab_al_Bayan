@@ -4,7 +4,7 @@
 
 **Developed by Team Helium**
 
-**Live portal** [Ṭullāb al-Bayān on Vercel](https://tullab-al-bayan.vercel.app/)
+**Live portal** [Ṭullāb al-Bayān on Vercel](https://tullab-al-bayan.vercel.app/sign-in)
 
 Ṭullāb al-Bayān is Al Bayan Institute’s Arabic language learning portal. It gives students, teachers, and administrators separate workspaces for managing classes, homework, attendance, and tuition across seven weekday batches.
 
