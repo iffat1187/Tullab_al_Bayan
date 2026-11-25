@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react'
 import {
-  BookOpenCheck, CalendarDays, CalendarRange, CreditCard, FileText,
+  BookOpenCheck, CalendarDays, CalendarRange, CreditCard, Download, FileText,
   LayoutDashboard, ListChecks, Receipt, Tags, Users, UserRoundCheck, Wifi,
 } from 'lucide-react'
 import StaffDashboard from '../features/dashboard/StaffDashboard.jsx'
+import AdminExport from '../features/admin/AdminExport.jsx'
 import StaffAttendance from '../features/attendance/StaffAttendance.jsx'
 import StudentManagement from '../features/admin/StudentManagement.jsx'
 import TeacherManagement from '../features/admin/TeacherManagement.jsx'
@@ -32,7 +33,7 @@ const institute = { title: 'Institute', pages: [
 // Older links stay reachable, but duplicate or unavailable pages are kept out of the sidebar.
 const studentAccounts = { title: 'Fees', pages: [
   { path: 'student-ledger', hiddenFromSidebar: true, title: 'Tuition history', icon: Receipt, page: <StudentTuition title="Tuition history" /> },
-  { path: 'online-payment', hiddenFromSidebar: true, title: 'Online payment', icon: CreditCard, empty: 'Online payment is not available yet. Pay at the institute office.' },
+  { path: 'online-payment', title: 'Online payment', icon: CreditCard, empty: 'Online payment is not available yet. Pay at the institute office.' },
   { path: 'tuition-fee-waiver', hiddenFromSidebar: true, title: 'Scholarship', icon: Tags, page: <StudentTuition title="Scholarship" waiverOnly /> },
 ] }
 
@@ -41,6 +42,7 @@ const adminAccounts = { title: 'Fees', pages: [
   { path: 'payment-records', title: 'Payments', icon: Receipt, page: <AdminTuition title="Payments" mode="payment" /> },
   { path: 'scholarship-management', title: 'Scholarships', icon: Tags, page: <AdminTuition title="Scholarships" mode="scholarship" /> },
   { path: 'student-ledgers', title: 'Student ledgers', icon: FileText, page: <AdminTuition title="Student ledgers" mode="ledger" /> },
+  { path: 'export', title: 'Export Data', icon: Download, page: <AdminExport /> },
 ] }
 
 export function navigationFor(role) {
