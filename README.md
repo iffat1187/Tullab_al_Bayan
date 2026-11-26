@@ -30,7 +30,7 @@
 React Router manages workspaces in a Vite application styled with Tailwind CSS. Feature repositories use the authenticated Supabase client for PostgreSQL reads and writes. PostgreSQL row-level security and database functions enforce access by role. Scheduling and export boundaries use `Asia/Dhaka`.
 
 ```text
-Tullab-al-Bayan/
+Tullab_al_Bayan/
 ├── frontend/
 │   ├── src/
 │   │   ├── app/                     # Routes, portal layout, and role-based navigation
