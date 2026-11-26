@@ -54,6 +54,7 @@ export function useLiveAuth() {
   const [sessionChecked, setSessionChecked] = useState(() => !supabase)
   const [result, setResult] = useState(null)
   const [attempt, setAttempt] = useState(0)
+  const [profileRefresh, setProfileRefresh] = useState(0)
   const [oauthUrlError, setOauthUrlError] = useState(() => hasOAuthUrlError())
   const [pendingPkceCode, setPendingPkceCode] = useState(() => hasPkceCode())
   const [signOutError, setSignOutError] = useState('')
@@ -70,6 +71,7 @@ export function useLiveAuth() {
     if (!supabase) return
 
     let active = true
+    let refreshTimer
 
     function applySession(nextSession, event) {
       const nextUser = nextSession?.user ?? null
@@ -117,10 +119,16 @@ export function useLiveAuth() {
         log.debug(`Auth state changed: ${event}`, { userId: next?.user?.id })
       }
       applySession(next ?? null, event)
+      if (next?.user && (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
+        clearTimeout(refreshTimer)
+        // Run the profile check after the Supabase auth callback releases its lock.
+        refreshTimer = setTimeout(() => setProfileRefresh(value => value + 1), 0)
+      }
     })
 
     return () => {
       active = false
+      clearTimeout(refreshTimer)
       subscription.unsubscribe()
     }
   }, [])
@@ -166,7 +174,7 @@ export function useLiveAuth() {
       active = false
       requestIdRef.current += 1
     }
-  }, [userId, attempt])
+  }, [userId, attempt, profileRefresh])
 
   const retry = useCallback(() => {
     log.info('Retrying institute access check')

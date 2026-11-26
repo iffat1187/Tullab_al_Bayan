@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { AdminBatchPage } from '../admin/AdminBatchPage.jsx'
 import { LoadingState, Notice, PageHeader } from '../../components/ui.jsx'
-import { listBatches } from '../admin/batchRepository.js'
+import { listBatches, updateBatchClassDetails } from '../admin/batchRepository.js'
 import './batchCalendar.css'
 import { classDate } from './academicRepository.js'
 import { monthDays, nextClassDate, scheduledClasses, shiftMonth } from './studentSchedule.js'
@@ -17,7 +16,7 @@ const fullDate = new Intl.DateTimeFormat('en-GB', {
 function ClassDetails({ assignment }) {
   return (
     <>
-      <span className="block font-medium">Class</span>
+      <span className="block font-medium">In-person class</span>
       {assignment.time && <span className="block">{assignment.time}</span>}
       {assignment.venue && <span className="block">{assignment.venue}</span>}
     </>
@@ -71,7 +70,7 @@ function BatchCalendar({ batch }) {
           {classes.length ? classes.map(assignment => (
             <li key={assignment.date} data-today={assignment.date === today} data-past={assignment.date < today}>
               <time dateTime={assignment.date} aria-current={assignment.date === today ? 'date' : undefined}>{fullDate.format(new Date(assignment.date + 'T00:00:00Z'))}</time>
-              <span className="text-sm text-muted">{[assignment.time, assignment.venue].filter(Boolean).join(', ') || 'In person'}</span>
+              <ClassDetails assignment={assignment} />
             </li>
           )) : <li className="text-muted">No classes this month.</li>}
         </ol>
@@ -114,13 +113,103 @@ function StudentCalendar({ account }) {
   )
 }
 
+function ClassDetailsEditor({ batch, onSaved, onCancel }) {
+  const [classTime, setClassTime] = useState(batch.classTime ?? '')
+  const [venue, setVenue] = useState(batch.venue ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function save(event) {
+    event.preventDefault()
+    if (saving) return
+    setSaving(true)
+    setError('')
+    try {
+      onSaved(await updateBatchClassDetails(batch.id, { classTime, venue }))
+    } catch {
+      setError('Class details could not be saved. Please try again.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="panel mb-4" onSubmit={save} aria-labelledby="class-details-title">
+      <div className="panel-head"><h2 id="class-details-title">Edit class details</h2></div>
+      <div className="panel-body grid gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="grid gap-1">Class time (Dhaka time)
+            <input className="field" type="time" step="1" value={classTime} disabled={saving} onChange={event => setClassTime(event.target.value)} />
+          </label>
+          <label className="grid gap-1">Venue
+            <input className="field" value={venue} disabled={saving} onChange={event => setVenue(event.target.value)} />
+          </label>
+        </div>
+        {error && <Notice tone="error">{error}</Notice>}
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          <button type="button" className="btn btn-secondary" disabled={saving} onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </form>
+  )
+}
+
+function StaffBatchCalendar({ role, batch, onSaved }) {
+  const [editing, setEditing] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  return <>
+    {role === 'admin' && (editing
+      ? <ClassDetailsEditor batch={batch} onCancel={() => setEditing(false)} onSaved={updated => {
+        onSaved(updated)
+        setEditing(false)
+        setSaved(true)
+      }} />
+      : <button type="button" className="btn btn-secondary mb-4" onClick={() => { setSaved(false); setEditing(true) }}>Edit class details</button>)}
+    {saved && <p role="status" className="mb-4">Class details saved.</p>}
+    <BatchCalendar batch={batch} />
+  </>
+}
+
+function StaffCalendar({ role }) {
+  const [batches, setBatches] = useState(null)
+  const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
+  const [selectedId, setSelectedId] = useState(null)
+  const batch = batches?.find(item => item.id === selectedId)
+
+  useEffect(() => {
+    let active = true
+    listBatches().then(
+      result => { if (active) setBatches(result) },
+      () => { if (active) setError('Batch calendars could not be loaded.') },
+    )
+    return () => { active = false }
+  }, [attempt])
+
+  function applySavedBatch(updated) {
+    setBatches(current => current.map(item => item.id === updated.id ? updated : item))
+  }
+
+  return <>
+    <PageHeader title={batch ? `${batch.name} batch calendar` : 'Class calendar'}
+      description="Each batch meets once a week. Times are Dhaka time."
+      actions={batch && <button type="button" className="btn btn-secondary" onClick={() => setSelectedId(null)}>Back to batches</button>} />
+    {error ? <Notice tone="error" action={<button type="button" className="btn btn-secondary btn-sm" onClick={() => {
+      setError('')
+      setAttempt(value => value + 1)
+    }}>Try again</button>}>{error}</Notice>
+      : !batches ? <LoadingState>Loading batches…</LoadingState>
+        : !batches.length ? <Notice tone="info">No batches are set up yet.</Notice>
+          : !batch ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7" role="group" aria-label="Choose a batch calendar">
+            {batches.map(item => <button key={item.id} type="button" className="btn btn-secondary aspect-square w-full whitespace-normal"
+              onClick={() => setSelectedId(item.id)}>{item.name} Batch</button>)}
+          </div> : <StaffBatchCalendar key={batch.id} role={role} batch={batch} onSaved={applySavedBatch} />}
+  </>
+}
+
 export default function AcademicCalendar() {
   const { role, account } = useOutletContext()
   if (role === 'student') return <StudentCalendar account={account} />
-
-  return (
-    <AdminBatchPage title="Class calendar" description="Each batch meets once a week. Times are Dhaka time.">
-      {({ batchInfo }) => <BatchCalendar key={batchInfo.id} batch={batchInfo} />}
-    </AdminBatchPage>
-  )
+  return <StaffCalendar key={role} role={role} />
 }

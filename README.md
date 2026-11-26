@@ -63,12 +63,9 @@ Tullab_al_Bayan/
 
 ### Step 1. Clone and install
 
-The full implementation described here is on `feat/frontend-polish-export`.
-
 ```sh
-git clone https://github.com/iffat1187/Tullab_al_Bayan.git
-cd Tullab_al_Bayan
-git switch feat/frontend-polish-export
+git clone https://github.com/pointfex-hq/Tullab-al-Bayan.git
+cd Tullab-al-Bayan
 cd frontend
 npm ci
 ```

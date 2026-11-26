@@ -1,26 +1,45 @@
 import { supabase } from '../auth/supabaseAuth.js'
 import { createLogger, logged } from '../../lib/logger.js'
+import { toScholarship } from '../../lib/scholarship.js'
 
 const log = createLogger('batches')
+const batchColumns = 'id, name, day_of_week, display_order, class_time, venue'
 
-export const listBatches = logged(log, 'Load batches', async function listBatches() {
-  if (!supabase) throw new Error('Supabase client is not configured.')
-
-  const { data, error } = await supabase
-    .from('batches')
-    .select('id, name, day_of_week, display_order, class_time, venue')
-    .order('display_order', { ascending: true })
-  if (error) throw error
-
-  return (data ?? []).map(row => ({
+function mapBatch(row) {
+  return {
     id: row.id,
     name: row.name,
     dayOfWeek: row.day_of_week,
     displayOrder: row.display_order,
     classTime: row.class_time ?? null,
     venue: row.venue ?? null,
-  }))
+  }
+}
+
+export const listBatches = logged(log, 'Load batches', async function listBatches() {
+  if (!supabase) throw new Error('Supabase client is not configured.')
+
+  const { data, error } = await supabase
+    .from('batches')
+    .select(batchColumns)
+    .order('display_order', { ascending: true })
+  if (error) throw error
+
+  return (data ?? []).map(mapBatch)
 }, { result: rows => ({ count: rows.length }) })
+
+export const updateBatchClassDetails = logged(log, 'Save batch class details', async function updateBatchClassDetails(batchId, { classTime, venue }) {
+  if (!supabase) throw new Error('Supabase client is not configured.')
+
+  const { data, error } = await supabase
+    .from('batches')
+    .update({ class_time: classTime || null, venue: venue.trim() || null })
+    .eq('id', batchId)
+    .select(batchColumns)
+    .single()
+  if (error) throw error
+  return mapBatch(data)
+}, { context: batchId => ({ batchId }) })
 
 export const listActiveRosterForRole = logged(log, 'Load active roster', async function listActiveRosterForRole(role, knownBatches) {
   if (!supabase) throw new Error('Supabase client is not configured.')
@@ -41,7 +60,7 @@ export const listActiveRosterForRole = logged(log, 'Load active roster', async f
       batchId: row.batch_id,
       batch: row.batches?.name ?? null,
       defaultMonthlyFee: row.default_monthly_fee === null ? null : Number(row.default_monthly_fee),
-      defaultScholarshipPercent: row.default_scholarship_percent,
+      defaultScholarshipPercent: toScholarship(row.default_scholarship_percent),
       isActive: Boolean(row.is_active),
     }))
   }

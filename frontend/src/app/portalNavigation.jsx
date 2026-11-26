@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react'
 import {
-  BookOpenCheck, CalendarDays, CalendarRange, CreditCard, FileText,
-  LayoutDashboard, ListChecks, Receipt, Tags, Users, Wifi,
+  BookOpenCheck, CalendarDays, CalendarRange, CreditCard, Download, FileText,
+  LayoutDashboard, ListChecks, Receipt, Tags, Users, UserRoundCheck, Wifi,
 } from 'lucide-react'
 import StaffDashboard from '../features/dashboard/StaffDashboard.jsx'
+import AdminExport from '../features/admin/AdminExport.jsx'
 import StaffAttendance from '../features/attendance/StaffAttendance.jsx'
 import StudentManagement from '../features/admin/StudentManagement.jsx'
+import TeacherManagement from '../features/admin/TeacherManagement.jsx'
 import AdminTuition from '../features/tuition/AdminTuition.jsx'
 import StudentTuition from '../features/tuition/StudentTuition.jsx'
 import OnlinePayment from '../features/tuition/OnlinePayment.jsx'
@@ -41,6 +43,7 @@ const adminAccounts = { title: 'Fees', pages: [
   { path: 'payment-records', title: 'Payments', icon: Receipt, page: <AdminTuition title="Payments" mode="payment" /> },
   { path: 'scholarship-management', title: 'Scholarships', icon: Tags, page: <AdminTuition title="Scholarships" mode="scholarship" /> },
   { path: 'student-ledgers', title: 'Student ledgers', icon: FileText, page: <AdminTuition title="Student ledgers" mode="ledger" /> },
+  { path: 'export', title: 'Export Data', icon: Download, page: <AdminExport /> },
 ] }
 
 export function navigationFor(role) {
@@ -56,6 +59,7 @@ export function navigationFor(role) {
   }
   if (role === 'admin') {
     main.push({ path: 'students', title: 'Students', icon: Users, page: <StudentManagement /> })
+    main.push({ path: 'teachers', title: 'Teacher Management', icon: UserRoundCheck, page: <TeacherManagement /> })
   }
 
   const groups = [{ title: 'Classroom', pages: main }]

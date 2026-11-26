@@ -6,6 +6,7 @@ import { Check } from 'lucide-react'
 import { EmptyState, Notice, Person, SkeletonRows, StatusPill, useToast } from '../../components/ui.jsx'
 import { TuitionHistory } from './StudentTuition.jsx'
 import { listRoster } from '../roster/rosterRepository.js'
+import { formatScholarship, parseScholarship } from '../../lib/scholarship.js'
 import {
   coveredStatus,
   feeNotSetStatus,
@@ -16,7 +17,6 @@ import {
   parseFee,
   paymentStatuses,
   saveTuition,
-  scholarships,
   tuitionStatuses,
 } from './tuitionRepository.js'
 
@@ -43,31 +43,43 @@ function effectiveStatus(record, scholarship, due) {
   return record.status
 }
 
+const initialScholarship = (record, student) => String(record?.scholarship ?? student.defaultScholarshipPercent ?? 0)
+
+function amountDue(fee, scholarship) {
+  if (scholarship === 100) return 0
+  if (fee == null) return null
+  // Matches the database: round(base_fee * (100 - scholarship) / 100, 2).
+  return Math.round((fee * (100 - scholarship) / 100 + Number.EPSILON) * 100) / 100
+}
+
 function TuitionRow({ student, record, mode, onSaved }) {
   const [fee, setFee] = useState(record?.baseFee?.toFixed(2) ?? '')
-  const [scholarship, setScholarship] = useState(record?.scholarship ?? student.defaultScholarshipPercent ?? 0)
+  const [scholarshipText, setScholarshipText] = useState(() => initialScholarship(record, student))
   const [payment, setPayment] = useState(record?.payment ?? 'Unpaid')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setFee(record?.baseFee?.toFixed(2) ?? '')
-    setScholarship(record?.scholarship ?? student.defaultScholarshipPercent ?? 0)
+    setScholarshipText(initialScholarship(record, student))
     setPayment(record?.payment ?? 'Unpaid')
     setError('')
   }, [record, student])
 
   const parsed = parseFee(fee)
-  const due = scholarship === 100 ? 0 : parsed.value == null ? null : Math.round(parsed.value * (100 - scholarship)) / 100
+  const parsedScholarship = parseScholarship(scholarshipText)
+  // While the typed scholarship is invalid, preview with the saved value.
+  const scholarship = parsedScholarship.value ?? record?.scholarship ?? student.defaultScholarshipPercent ?? 0
+  const due = amountDue(parsed.value, scholarship)
   const paymentDisabled = due == null || due <= 0
   const rowStatus = effectiveStatus(record, scholarship, due)
   const effectivePayment = paymentDisabled ? 'Unpaid' : payment
-  const dirty = Boolean(record) && !parsed.error && (
+  const dirty = Boolean(record) && !parsed.error && !parsedScholarship.error && (
     (parsed.value ?? null) !== (record.baseFee ?? null) || scholarship !== record.scholarship || effectivePayment !== record.payment)
 
   function reset() {
     setFee(record?.baseFee?.toFixed(2) ?? '')
-    setScholarship(record?.scholarship ?? student.defaultScholarshipPercent ?? 0)
+    setScholarshipText(initialScholarship(record, student))
     setPayment(record?.payment ?? 'Unpaid')
     setError('')
   }
@@ -82,8 +94,8 @@ function TuitionRow({ student, record, mode, onSaved }) {
       setError('Generate this month before editing its record.')
       return
     }
-    if (parsed.error) {
-      setError(parsed.error)
+    if (parsed.error || parsedScholarship.error) {
+      setError(parsed.error || parsedScholarship.error)
       return
     }
     if (record.payment === 'Paid' && (parsed.value !== record.baseFee || scholarship !== record.scholarship) && !window.confirm('This record is already Paid. Change its fee or scholarship?')) {
@@ -129,17 +141,24 @@ function TuitionRow({ student, record, mode, onSaved }) {
       </td>
       <td>
         {mode === 'payment' ? (
-          `${scholarship}%`
+          formatScholarship(scholarship, '0%')
         ) : (
-          <select
-            aria-label={`Scholarship for ${student.name}`}
-            className={fieldClass}
-            disabled={!record}
-            value={scholarship}
-            onChange={event => { setScholarship(Number(event.target.value)); setError('') }}
-          >
-            {scholarships.map(value => <option key={value} value={value}>{value}%</option>)}
-          </select>
+          <span className="inline-flex items-center gap-1">
+            <input
+              aria-label={`Scholarship percent for ${student.name}`}
+              aria-invalid={Boolean(parsedScholarship.error)}
+              className={fieldClass + ' w-24'}
+              type="number"
+              inputMode="decimal"
+              min="0"
+              max="100"
+              step="0.01"
+              disabled={!record}
+              value={scholarshipText}
+              onChange={event => { setScholarshipText(event.target.value); setError('') }}
+            />
+            <span aria-hidden="true">%</span>
+          </span>
         )}
       </td>
       <td className="whitespace-nowrap font-semibold tabular-nums">

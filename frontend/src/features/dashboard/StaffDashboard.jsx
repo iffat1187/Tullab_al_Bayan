@@ -77,20 +77,22 @@ function AttendanceProgress({ sessions, students, batchNames, role }) {
 }
 
 function TuitionSummary({ month, onMonthChange }) {
-  const [state, setState] = useState({ records: [], loading: true, error: '' })
+  const [result, setResult] = useState(null)
 
   useEffect(() => {
     if (!month) return undefined
     let active = true
-    setState(current => ({ ...current, loading: true, error: '' }))
+    setResult(null)
     listMonthlyTuition({ billingMonth: month }).then(
-      records => { if (active) setState({ records, loading: false, error: '' }) },
-      () => { if (active) setState({ records: [], loading: false, error: 'Tuition could not be loaded.' }) },
+      records => { if (active) setResult({ month, records, error: '' }) },
+      () => { if (active) setResult({ month, records: [], error: 'Tuition could not be loaded.' }) },
     )
     return () => { active = false }
   }, [month])
 
-  const unpaid = state.records.filter(record => record.status === 'Unpaid')
+  const current = result?.month === month ? result : null
+  const records = current?.records ?? []
+  const unpaid = records.filter(record => record.status === 'Unpaid')
   const outstanding = unpaid.reduce((total, record) => total + (record.due ?? 0), 0)
 
   return (
@@ -101,17 +103,17 @@ function TuitionSummary({ month, onMonthChange }) {
       </div>
       <div className="panel-body">
         {!month ? <p className="text-muted">Choose a billing month.</p>
-          : state.loading ? <LoadingState />
-            : state.error ? <Notice tone="error">{state.error}</Notice>
-              : !state.records.length ? (
+          : !current ? <LoadingState />
+            : current.error ? <Notice tone="error">{current.error}</Notice>
+              : !records.length ? (
                 <p className="text-muted">Tuition for {formatBillingMonth(month)} hasn’t been generated yet. <Link className="text-brand underline" to={'/admin/tuition?month=' + encodeURIComponent(month)}>Generate it</Link></p>
               ) : <>
                 <p className="text-sm text-muted">Still to collect for {formatBillingMonth(month)}</p>
                 <p className="money">{formatTuitionAmount(outstanding)}</p>
                 <dl className="tuition-breakdown">
-                  <div><dt>Paid</dt><dd>{state.records.filter(record => record.status === 'Paid').length}</dd></div>
+                  <div><dt>Paid</dt><dd>{records.filter(record => record.status === 'Paid').length}</dd></div>
                   <div><dt>Unpaid</dt><dd>{unpaid.length}</dd></div>
-                  <div><dt>Scholarship</dt><dd>{state.records.filter(record => record.status === coveredStatus).length}</dd></div>
+                  <div><dt>Scholarship</dt><dd>{records.filter(record => record.status === coveredStatus).length}</dd></div>
                 </dl>
                 <Link className="btn btn-secondary btn-sm mt-4" to={'/admin/payment-records?month=' + encodeURIComponent(month)}>Record payments</Link>
               </>}
@@ -153,9 +155,8 @@ function RecentHomework({ homework, batchNames }) {
   )
 }
 
-function DashboardData({ role }) {
-  const [today] = useState(classDate)
-  const [month, setMonth] = useState(() => classDate().slice(0, 7))
+function DashboardData({ role, today }) {
+  const [month, setMonth] = useState(() => today.slice(0, 7))
   const [state, setState] = useState({ loading: true, error: '', students: [], batches: [], sessions: [], homework: [] })
   const [reloadToken, setReloadToken] = useState(0)
 
@@ -187,7 +188,7 @@ function DashboardData({ role }) {
   }
 
   const batchNames = new Map(state.batches.map(batch => [batch.id, batch.name]))
-  const calendar = academicCalendar(state.batches)
+  const calendar = academicCalendar(state.batches, today)
   const todaysClasses = calendar.filter(item => item.date === today)
   const upcoming = calendar.find(item => item.date > today)
   const marks = state.sessions.flatMap(session => Object.values(session.marks)).filter(mark => markOptions.includes(mark))
@@ -218,11 +219,12 @@ function DashboardData({ role }) {
 
 export default function StaffDashboard() {
   const { role, account } = useOutletContext()
+  const [today] = useState(classDate)
   const firstName = account.name.split(' ')[0]
   return (
     <>
-      <PageHeader title={`Assalamu alaikum, ${firstName}`} description={formatDate(classDate())} />
-      <DashboardData role={role} />
+      <PageHeader title={`Assalamu alaikum, ${firstName}`} description={formatDate(today)} />
+      <DashboardData role={role} today={today} />
     </>
   )
 }
