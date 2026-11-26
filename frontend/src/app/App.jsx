@@ -136,15 +136,26 @@ function AccessStatusScreen({ title, message, error, actionLabel, onAction, onSi
 }
 
 function PendingAccessScreen({ account, onRetry, onSignOut, signOutError }) {
+  const declined = account.accessRequestStatus === 'rejected'
+  const requested = account.accessRequestStatus === 'pending'
+  const who = account.email || account.name
   return (
     <StatusScreen
-      title="Waiting for access"
-      message={`You're signed in as ${account.email || account.name}, but this account isn't linked to a student or staff record yet.`}
+      title={declined ? 'Access request declined' : requested ? 'Access requested' : 'Waiting for access'}
+      message={declined
+        ? `The Al Bayan office declined access for ${who}. If you think this is a mistake, contact the office.`
+        : requested
+          ? `You're signed in as ${who}. Your request has been sent to the Al Bayan office, and an admin will review it.`
+          : `You're signed in as ${who}, but this account isn't linked to a student or staff record yet.`}
     >
-      <ol className="mt-4 grid gap-2 text-sm">
-        <li><strong className="font-medium">1.</strong> Ask the Al Bayan office to add this email to your record.</li>
-        <li><strong className="font-medium">2.</strong> Come back here and choose <em>Check again</em>.</li>
-      </ol>
+      {!declined && (
+        <ol className="mt-4 grid gap-2 text-sm">
+          {requested
+            ? <li><strong className="font-medium">1.</strong> Wait for an admin to approve your request, or ask the office to add this email to your record.</li>
+            : <li><strong className="font-medium">1.</strong> Ask the Al Bayan office to add this email to your record.</li>}
+          <li><strong className="font-medium">2.</strong> Come back here and choose <em>Check again</em>.</li>
+        </ol>
+      )}
       {signOutError && <p className="field-error" role="alert">{signOutError}</p>}
       <div className="status-actions">
         <button type="button" className="btn btn-primary" onClick={onRetry}><RefreshCw size={16} aria-hidden="true" /> Check again</button>

@@ -86,10 +86,19 @@ export async function loadProfile(user) {
   }
 
   if (!roleRow) {
-    log.info('Signed-in user has no institute access yet (pending)', { userId: user.id })
+    // File (or refresh) an access request so admins see this account in their queue.
+    let accessRequestStatus = null
+    const { data: requestStatus, error: requestError } = await supabase.rpc('request_access')
+    if (requestError) {
+      log.warn('Could not file the access request; the user still sees the pending screen', { userId: user.id, error: requestError })
+    } else {
+      accessRequestStatus = requestStatus
+    }
+    log.info('Signed-in user has no institute access yet (pending)', { userId: user.id, accessRequestStatus })
     return {
       ...basic,
       role: 'pending',
+      accessRequestStatus,
       staffId: null,
       studentUuid: null,
       id: null,

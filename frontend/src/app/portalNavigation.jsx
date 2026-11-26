@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react'
 import {
   BookOpenCheck, CalendarDays, CalendarRange, CreditCard, Download, FileText,
-  LayoutDashboard, ListChecks, Receipt, Tags, Users, UserRoundCheck, Wifi,
+  LayoutDashboard, ListChecks, Receipt, Tags, UserPlus, Users, UserRoundCheck, Wifi,
 } from 'lucide-react'
 import StaffDashboard from '../features/dashboard/StaffDashboard.jsx'
 import AdminExport from '../features/admin/AdminExport.jsx'
 import StaffAttendance from '../features/attendance/StaffAttendance.jsx'
+import AccessRequests from '../features/admin/AccessRequests.jsx'
 import StudentManagement from '../features/admin/StudentManagement.jsx'
 import TeacherManagement from '../features/admin/TeacherManagement.jsx'
 import AdminTuition from '../features/tuition/AdminTuition.jsx'
@@ -58,6 +59,7 @@ export function navigationFor(role) {
     main.push({ path: 'tuition', title: 'Tuition', icon: CreditCard, page: <StudentTuition title="Tuition" /> })
   }
   if (role === 'admin') {
+    main.push({ path: 'access-requests', title: 'Access requests', icon: UserPlus, page: <AccessRequests /> })
     main.push({ path: 'students', title: 'Students', icon: Users, page: <StudentManagement /> })
     main.push({ path: 'teachers', title: 'Teacher Management', icon: UserRoundCheck, page: <TeacherManagement /> })
   }
