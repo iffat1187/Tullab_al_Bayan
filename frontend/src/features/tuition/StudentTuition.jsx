@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { EmptyState, LoadingState, Notice, PageHeader, StatusPill } from '../../components/ui.jsx'
 import { formatBillingMonth, formatTuitionAmount } from './tuitionFormat.js'
 import { feeNotSetStatus, listStudentTuition } from './tuitionRepository.js'
+import { formatScholarship } from '../../lib/scholarship.js'
 
 export function TuitionHistory({ studentUuid, waiverOnly = false }) {
   const [state, setState] = useState({ records: [], loading: true, error: '' })
@@ -26,7 +27,7 @@ export function TuitionHistory({ studentUuid, waiverOnly = false }) {
           <tr key={record.id}>
             <th scope="row">{formatBillingMonth(record.month)}</th>
             <td className="num">{record.baseFee === null ? feeNotSetStatus : formatTuitionAmount(record.baseFee)}</td>
-            <td>{record.scholarship ? `${record.scholarship}%` : 'None'}</td>
+            <td>{formatScholarship(record.scholarship)}</td>
             <td className="num font-medium">{record.due === null ? '—' : formatTuitionAmount(record.due)}</td>
             <td><StatusPill status={record.status} /></td>
           </tr>

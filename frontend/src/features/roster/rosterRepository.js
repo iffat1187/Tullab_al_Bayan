@@ -1,9 +1,8 @@
 import { supabase } from '../auth/supabaseAuth.js'
 import { createLogger, logged } from '../../lib/logger.js'
+import { parseScholarship, toScholarship } from '../../lib/scholarship.js'
 
 const log = createLogger('roster')
-
-const scholarships = [0, 50, 100]
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase client is not configured.')
@@ -18,7 +17,7 @@ function mapStudent(row, linkedUserByStudent) {
     batchId: row.batch_id,
     batch: row.batches?.name ?? null,
     defaultMonthlyFee: row.default_monthly_fee === null ? null : Number(row.default_monthly_fee),
-    defaultScholarshipPercent: row.default_scholarship_percent,
+    defaultScholarshipPercent: toScholarship(row.default_scholarship_percent),
     isActive: Boolean(row.is_active),
     enrolledAt: row.enrolled_at,
     batchAssignedAt: row.batch_assigned_at,
@@ -46,13 +45,14 @@ export const listRoster = logged(log, 'Load student roster', async function list
 }, { context: ({ isActive } = {}) => ({ isActive }), result: rows => ({ count: rows.length }) })
 
 function validateStudent(input) {
+  const scholarship = parseScholarship(input.defaultScholarshipPercent)
   const student = {
     student_code: input.id?.trim() ?? '',
     full_name: input.name?.trim() ?? '',
     email: input.email?.trim().toLowerCase() ?? '',
     batch_id: Number(input.batchId),
     default_monthly_fee: input.defaultMonthlyFee === '' || input.defaultMonthlyFee == null ? null : Number(input.defaultMonthlyFee),
-    default_scholarship_percent: Number(input.defaultScholarshipPercent ?? 0),
+    default_scholarship_percent: scholarship.value ?? 0,
   }
   const errors = {}
   if (!student.student_code) errors.id = 'Enter a student ID.'
@@ -62,7 +62,7 @@ function validateStudent(input) {
   if (student.default_monthly_fee !== null && (!Number.isFinite(student.default_monthly_fee) || student.default_monthly_fee < 0)) {
     errors.defaultMonthlyFee = 'Enter a non-negative BDT amount.'
   }
-  if (!scholarships.includes(student.default_scholarship_percent)) errors.defaultScholarshipPercent = 'Select 0%, 50%, or 100%.'
+  if (scholarship.error) errors.defaultScholarshipPercent = scholarship.error
   return { student, errors }
 }
 

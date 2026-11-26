@@ -3,6 +3,7 @@ import { Download, Link2, Pencil, Plus, RotateCcw, Upload, UserMinus, UserX, X }
 import { BatchSwitcher, EmptyState, Notice, PageHeader, Person, SkeletonRows, StatusPill, useToast } from '../../components/ui.jsx'
 import { listBatches } from './batchRepository.js'
 import { createLogger } from '../../lib/logger.js'
+import { formatScholarship, scholarshipHint } from '../../lib/scholarship.js'
 import {
   deactivateStudent,
   importCsvRows,
@@ -47,7 +48,7 @@ function parseCsv(source) {
 }
 
 function downloadTemplate() {
-  const csv = 'student_id,full_name,email,batch,default_monthly_fee,default_scholarship_percent\nSAT-001,Example Student,student@example.com,Saturday,1000.00,0\n'
+  const csv = 'student_id,full_name,email,batch,default_monthly_fee,default_scholarship_percent\nSAT-001,Example Student,student@example.com,Saturday,1000.00,43.3\n'
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
   const anchor = document.createElement('a')
   anchor.href = url
@@ -106,10 +107,9 @@ function StudentForm({ student, batches, onSaved, onCancel }) {
           <input className="field" type="number" min="0" step="0.01" value={fields.defaultMonthlyFee ?? ''} aria-invalid={Boolean(errors.defaultMonthlyFee)} onChange={event => change('defaultMonthlyFee', event.target.value)} placeholder="Not set" />
           {error('defaultMonthlyFee')}
         </label>
-        <label className="label">Scholarship
-          <select className="field" value={fields.defaultScholarshipPercent} onChange={event => change('defaultScholarshipPercent', event.target.value)}>
-            {[0, 50, 100].map(value => <option key={value} value={value}>{value === 0 ? 'None' : `${value}%`}</option>)}
-          </select>
+        <label className="label">Scholarship (%)
+          <input className="field" type="number" inputMode="decimal" min="0" max="100" step="0.01" value={fields.defaultScholarshipPercent ?? ''} aria-invalid={Boolean(errors.defaultScholarshipPercent)} onChange={event => change('defaultScholarshipPercent', event.target.value)} placeholder="0" />
+          {error('defaultScholarshipPercent') || <span className="field-hint">{scholarshipHint}</span>}
         </label>
         {errors.form && <Notice tone="error" className="sm:col-span-2">{errors.form}</Notice>}
         <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
@@ -262,7 +262,7 @@ export default function StudentManagement() {
             {batchId === null && <td>{student.batch}</td>}
             <td className="whitespace-nowrap">{student.email || <span className="text-danger">Missing</span>}</td>
             <td className="num">{student.defaultMonthlyFee == null ? <span className="text-muted">Not set</span> : `৳${student.defaultMonthlyFee.toLocaleString('en-BD')}`}</td>
-            <td>{student.defaultScholarshipPercent ? `${student.defaultScholarshipPercent}%` : <span className="text-muted">None</span>}</td>
+            <td>{student.defaultScholarshipPercent ? formatScholarship(student.defaultScholarshipPercent) : <span className="text-muted">None</span>}</td>
             <td>{student.linkedUserId ? <StatusPill status="Linked" /> : <StatusPill tone="neutral">Not signed in yet</StatusPill>}</td>
             <td><div className="flex justify-end gap-0.5 whitespace-nowrap">
               {student.isActive && <button type="button" className="btn btn-ghost btn-sm" title="Edit" aria-label={`Edit ${student.name}`} onClick={() => setEditor(student)}><Pencil size={16} aria-hidden="true" /></button>}

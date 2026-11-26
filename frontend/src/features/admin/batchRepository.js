@@ -1,5 +1,6 @@
 import { supabase } from '../auth/supabaseAuth.js'
 import { createLogger, logged } from '../../lib/logger.js'
+import { toScholarship } from '../../lib/scholarship.js'
 
 const log = createLogger('batches')
 const batchColumns = 'id, name, day_of_week, display_order, class_time, venue'
@@ -59,7 +60,7 @@ export const listActiveRosterForRole = logged(log, 'Load active roster', async f
       batchId: row.batch_id,
       batch: row.batches?.name ?? null,
       defaultMonthlyFee: row.default_monthly_fee === null ? null : Number(row.default_monthly_fee),
-      defaultScholarshipPercent: row.default_scholarship_percent,
+      defaultScholarshipPercent: toScholarship(row.default_scholarship_percent),
       isActive: Boolean(row.is_active),
     }))
   }

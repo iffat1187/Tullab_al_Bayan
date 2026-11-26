@@ -1,9 +1,9 @@
 import { supabase } from '../auth/supabaseAuth.js'
 import { createLogger, logged } from '../../lib/logger.js'
+import { toScholarship } from '../../lib/scholarship.js'
 
 const log = createLogger('tuition')
 
-export const scholarships = [0, 50, 100]
 export const paymentStatuses = ['Paid', 'Unpaid']
 export const coveredStatus = 'Covered by scholarship'
 export const feeNotSetStatus = 'Fee not set'
@@ -24,7 +24,7 @@ function mapRecord(row) {
     month: row.billing_month.slice(0, 7),
     billingMonth: row.billing_month,
     baseFee: row.base_fee === null ? null : Number(row.base_fee),
-    scholarship: row.scholarship_percent,
+    scholarship: toScholarship(row.scholarship_percent),
     due: row.amount_due === null ? null : Number(row.amount_due),
     payment: row.payment_status,
     status: row.display_status,
