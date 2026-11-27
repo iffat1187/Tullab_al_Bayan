@@ -9,19 +9,10 @@ import { KhatamPattern, Notice, ToastProvider } from '../components/ui.jsx'
 import { navigationFor, roleLabels, WorkspacePage } from './portalNavigation.jsx'
 import './portal.css'
 
-function StarMark({ size = 28 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <polygon points="12.00,1.50 14.37,6.27 19.42,4.58 17.73,9.63 22.50,12.00 17.73,14.37 19.42,19.42 14.37,17.73 12.00,22.50 9.63,17.73 4.58,19.42 6.27,14.37 1.50,12.00 6.27,9.63 4.58,4.58 9.63,6.27" fill="currentColor" />
-      <circle cx="12" cy="12" r="3" fill="var(--brand-deep)" />
-    </svg>
-  )
-}
-
 function Brand() {
   return (
     <div className="brand">
-      <span className="brand-mark"><StarMark /></span>
+      <img className="brand-mark" src="/logo.png" alt="" />
       <span className="brand-text">
         <strong lang="ar" dir="rtl">طُلَّابُ الْبَيَانِ</strong>
         <small>Al Bayan Institute</small>
