@@ -18,5 +18,5 @@ export function academicCalendar(batches, today = classDate()) {
 }
 
 export function instituteWifi() {
-  return null
+  return { networkName: 'BAYAN', password: 'AB123456' }
 }

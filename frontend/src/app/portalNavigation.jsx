@@ -29,7 +29,7 @@ const academics = { title: 'Course', pages: [
 ] }
 
 const institute = { title: 'Institute', pages: [
-  { path: 'bayan-wifi', title: 'Wi-Fi', icon: Wifi, page: <WifiInstructions /> },
+  { path: 'bayan-wifi', title: 'Bayan Wi-Fi', icon: Wifi, page: <WifiInstructions /> },
 ] }
 
 const onlinePaymentPage = { path: 'online-payment', title: 'Online Payment', icon: CreditCard, page: <OnlinePayment /> }
