@@ -13,6 +13,7 @@
 | **Routing & Icons** | **React Router v7 + Lucide React** | Role-protected routes (`/admin`, `/teacher`, `/student`, `/sign-in`) and icons. |
 | **Frontend Client SDK** | **`@supabase/supabase-js` (`^2.119.2`)** | Communicates directly with Supabase Auth, PostgREST tables, and PostgreSQL RPCs. |
 | **Client ZIP Export** | **`fflate`** *(~8 KB, added in Admin Export)* | Bundles the 6 CSV files + `manifest.json` inside the browser without a backend server. |
+| **Client PDF Report** | **`jspdf` + `jspdf-autotable`** *(lazy-loaded on download)* | Renders the Admin tuition fee PDF by billing period and batch entirely in the browser. |
 | **Backend & Database** | **Supabase (PostgreSQL + GoTrue Auth + PostgREST)** | Replaces a custom Node/Express/Django server. Hosts auth, API, business rules, and 7 target tables (4 shipped in Day 1; 3 planned in Days 2–4). |
 | **DB Versioning & CLI** | **Supabase CLI (`npx --yes supabase@3.2.0`) + Docker Desktop & WSL2** | Local development (`start`, `db reset`), type generation, and forward migrations (`db push`). |
 | **Frontend Hosting** | **Vercel (HTTPS)** | Hosts the React app with automatic Preview (Staging) and Production (Live) deployments. |

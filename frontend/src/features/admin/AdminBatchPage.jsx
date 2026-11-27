@@ -87,6 +87,7 @@ export function AdminBatchPage({ title, description, children }) {
             batchId: selectedBatch.id,
             batch: selectedBatch.name,
             batchInfo: selectedBatch,
+            batches: state.batches,
             students: members,
             reload,
           })}
