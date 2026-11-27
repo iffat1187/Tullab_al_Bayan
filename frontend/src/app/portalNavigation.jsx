@@ -32,14 +32,17 @@ const institute = { title: 'Institute', pages: [
   { path: 'bayan-wifi', title: 'Wi-Fi', icon: Wifi, page: <WifiInstructions /> },
 ] }
 
+const onlinePaymentPage = { path: 'online-payment', title: 'Online Payment', icon: CreditCard, page: <OnlinePayment /> }
+
 // Older links stay reachable, but duplicate or unavailable pages are kept out of the sidebar.
 const studentAccounts = { title: 'Fees', pages: [
   { path: 'student-ledger', hiddenFromSidebar: true, title: 'Tuition history', icon: Receipt, page: <StudentTuition title="Tuition history" /> },
-  { path: 'online-payment', title: 'Online Payment', icon: CreditCard, page: <OnlinePayment /> },
+  onlinePaymentPage,
   { path: 'tuition-fee-waiver', hiddenFromSidebar: true, title: 'Scholarship', icon: Tags, page: <StudentTuition title="Scholarship" waiverOnly /> },
 ] }
 
 const adminAccounts = { title: 'Fees', pages: [
+  onlinePaymentPage,
   { path: 'tuition', title: 'Monthly tuition', icon: CreditCard, page: <AdminTuition /> },
   { path: 'payment-records', title: 'Payments', icon: Receipt, page: <AdminTuition title="Payments" mode="payment" /> },
   { path: 'scholarship-management', title: 'Scholarships', icon: Tags, page: <AdminTuition title="Scholarships" mode="scholarship" /> },
@@ -68,6 +71,7 @@ export function navigationFor(role) {
   if (role === 'admin') groups.push(adminAccounts)
   groups.push(academics)
   if (role === 'student') groups.push(studentAccounts)
+  if (role === 'teacher') groups.push({ title: 'Fees', pages: [onlinePaymentPage] })
   return [...groups, institute]
 }
 
