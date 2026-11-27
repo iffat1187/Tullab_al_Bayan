@@ -28,7 +28,7 @@ const academics = { title: 'Course', pages: [
 ] }
 
 const institute = { title: 'Institute', pages: [
-  { path: 'bayan-wifi', title: 'Wi-Fi', icon: Wifi, page: <WifiInstructions /> },
+  { path: 'bayan-wifi', title: 'Bayan Wi-Fi', icon: Wifi, page: <WifiInstructions /> },
 ] }
 
 // Older links stay reachable, but duplicate or unavailable pages are kept out of the sidebar.
