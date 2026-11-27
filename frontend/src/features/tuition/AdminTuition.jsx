@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { AdminBatchPage, fieldClass } from '../admin/AdminBatchPage.jsx'
 import { formatBillingMonth, formatTuitionAmount } from './tuitionFormat.js'
-import { Check } from 'lucide-react'
+import { Check, FileDown } from 'lucide-react'
 import { EmptyState, Notice, Person, SkeletonRows, StatusPill, useToast } from '../../components/ui.jsx'
 import { TuitionHistory } from './StudentTuition.jsx'
+import TuitionPdfDialog from './TuitionPdfDialog.jsx'
 import { listRoster } from '../roster/rosterRepository.js'
 import { formatScholarship, parseScholarship } from '../../lib/scholarship.js'
 import {
@@ -202,10 +203,12 @@ function TuitionRow({ student, record, mode, onSaved }) {
   )
 }
 
-function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) {
+function BatchTuition({ batchId, batch, batches, students, month, onMonthChange, mode }) {
   const [state, setState] = useState({ records: [], loading: true, error: '' })
   const [notice, setNotice] = useState(null)
   const toast = useToast()
+  const { account } = useOutletContext() ?? {}
+  const [pdfOpen, setPdfOpen] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [filter, setFilter] = useState('All statuses')
   const [search, setSearch] = useState('')
@@ -340,9 +343,16 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
             onChange={event => setSearch(event.target.value)}
           />
         </label>
-        <button type="button" className={'btn ' + (ungeneratedMonth ? 'btn-primary' : 'btn-secondary')} disabled={generating} onClick={generate}>
-          {generating ? 'Generating…' : state.records.length ? 'Add missing students' : 'Generate tuition for this month'}
-        </button>
+        <div className="flex flex-wrap items-end gap-2">
+          <button type="button" className={'btn ' + (ungeneratedMonth ? 'btn-primary' : 'btn-secondary')} disabled={generating} onClick={generate}>
+            {generating ? 'Generating…' : state.records.length ? 'Add missing students' : 'Generate tuition for this month'}
+          </button>
+          {mode === 'management' && (
+            <button type="button" className="btn btn-secondary" onClick={() => setPdfOpen(true)}>
+              <FileDown size={16} aria-hidden="true" /> Download PDF
+            </button>
+          )}
+        </div>
       </section>
 
       {ungeneratedMonth && (
@@ -405,6 +415,16 @@ function BatchTuition({ batchId, batch, students, month, onMonthChange, mode }) 
           </div>
         )}
       </section>
+      {pdfOpen && (
+        <TuitionPdfDialog
+          month={month}
+          batchId={batchId}
+          batches={batches}
+          email={account?.email ?? ''}
+          onClose={() => setPdfOpen(false)}
+          onDownloaded={toast}
+        />
+      )}
     </>
   )
 }
@@ -432,11 +452,12 @@ export default function AdminTuition({ title = 'Monthly tuition', mode = 'manage
 
   return (
     <AdminBatchPage title={title} description={descriptions[mode]}>
-      {({ batchId, batch, students }) => (
+      {({ batchId, batch, batches, students }) => (
         <BatchTuition
           key={`${batchId}-${mode}`}
           batchId={batchId}
           batch={batch}
+          batches={batches}
           students={students}
           month={month}
           onMonthChange={changeMonth}

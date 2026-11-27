@@ -21,7 +21,7 @@
 
 - **Student workspace (`/student`)** — View batch schedules, published homework, personal attendance, and monthly tuition. **Online Payment** provides bank and bKash transfer instructions. Admins record the status of received payments in Tuition Management.
 - **Teacher workspace (`/teacher`)** — Open any of the seven batch calendars, manage homework for a batch, and record or correct attendance as Present, Late, Sick, or Absent.
-- **Admin workspace (`/admin`)** — Manage the student roster, approve or revoke teacher access, edit class time and venue, and manage monthly tuition and scholarships. Teacher access changes write database audit entries.
+- **Admin workspace (`/admin`)** — Manage the student roster, approve or revoke teacher access, edit class time and venue, and manage monthly tuition and scholarships. Monthly tuition also downloads a tuition fee PDF filtered by billing period (month, range or all months) and batch. Teacher access changes write database audit entries.
 - **Curriculum** — Browse the 12-book Arabic curriculum and read the four course skill descriptions. Admins can update skill descriptions for all workspaces.
 - **Admin data export (`/admin/export`)** — Download a ZIP with six CSVs and a manifest for the full institute, a billing month, or a date range. Use separate Supabase database backups for recovery.
 
