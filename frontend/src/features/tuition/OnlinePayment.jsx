@@ -137,16 +137,22 @@ function PaymentMethodCard({ method, instruction, canEdit, onChange }) {
 
 export default function OnlinePayment() {
   const { role } = useOutletContext()
-  const canEdit = role === 'admin' || role === 'teacher'
+  const canEdit = role === 'admin'
   const [instructions, setInstructions] = useState(null)
-  const [loadError, setLoadError] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
     listPaymentInstructions().then(
       rows => { if (active) setInstructions(Object.fromEntries(rows.map(row => [row.method, row]))) },
-      () => { if (active) setLoadError(true) },
+      error => {
+        if (!active) return
+        const missingTable = error?.code === 'PGRST205' || error?.code === '42P01'
+        setLoadError(missingTable
+          ? 'Payment instructions are unavailable while the database is being set up.'
+          : 'Payment instructions could not be loaded.')
+      },
     )
     return () => { active = false }
   }, [attempt])
@@ -163,10 +169,10 @@ export default function OnlinePayment() {
       {loadError ? (
         <Notice tone="error" action={
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => {
-            setLoadError(false)
+            setLoadError('')
             setAttempt(value => value + 1)
           }}>Try again</button>
-        }>Payment instructions could not be loaded.</Notice>
+        }>{loadError}</Notice>
       ) : !visibleMethods ? (
         <LoadingState>Loading payment instructions…</LoadingState>
       ) : visibleMethods.length ? (
