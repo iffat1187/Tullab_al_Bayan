@@ -1,13 +1,15 @@
 import { supabase } from '../auth/supabaseAuth.js'
+import { createLogger, logged } from '../../lib/logger.js'
 
+const log = createLogger('online-payment')
 const columns = 'method, bank_name, branch_name, account_name, account_number, routing_number, mobile_number, transfer_instruction, reference_instruction, cash_out_instruction'
 
-export async function listPaymentInstructions() {
+export const listPaymentInstructions = logged(log, 'Load payment instructions', async function listPaymentInstructions() {
   if (!supabase) throw new Error('Supabase is not configured.')
   const { data, error } = await supabase.from('payment_instructions').select(columns)
   if (error) throw error
   return data ?? []
-}
+}, { result: rows => ({ count: rows.length }) })
 
 export async function savePaymentInstruction(method, details, editing) {
   if (!supabase) throw new Error('Supabase is not configured.')
